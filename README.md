@@ -109,8 +109,8 @@ Hermes is a comprehensive OSINT framework that automates the process of gatherin
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd hermes
+git clone https://github.com/Expert21/hermes-osint.git
+cd hermes-osint
 
 # Install dependencies
 pip install -r requirements.txt

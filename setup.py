@@ -9,12 +9,12 @@ with open(readme_path, "r", encoding="utf-8") as fh:
 setup(
     name="hermes-osint",
     version="1.0.0",
-    author="Your Name",
+    author="Expert21",
     author_email="your.email@example.com",
     description="Advanced OSINT Intelligence Gathering Tool",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/hermes",
+    url="https://github.com/Expert21/hermes-osint",
     
     # Include both packages and the modules
     packages=find_packages(),

@@ -6,7 +6,7 @@ Install Hermes globally so you can run it from anywhere:
 
 ```bash
 # Navigate to the hermes directory
-cd hermes
+cd hermes-osint
 
 # Install in development mode (editable)
 pip install -e .

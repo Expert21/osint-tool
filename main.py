@@ -5,7 +5,7 @@ from src.core.config import load_config
 from src.modules.search_engines import run_search_engines
 from src.modules.social_media import run_social_media_checks
 from src.reporting.generator import generate_report
-from src.modules.verification import enhanced_social_media_check_with_verification
+from src.modules.profile_verification import enhanced_social_media_check_with_verification
 
 def main():
     parser = argparse.ArgumentParser(description="OSINT Tool - Social Media & Web Search")

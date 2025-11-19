@@ -1,195 +1,450 @@
 import requests
 import logging
-import time
-import random
-from typing import Dict, List, Optional
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from typing import Dict, List, Optional, Set
+from bs4 import BeautifulSoup
+import re
+from difflib import SequenceMatcher
 
 logger = logging.getLogger("OSINT_Tool")
 
-class SocialMediaChecker:
-    """Enhanced social media checker with detection avoidance"""
+class ProfileVerifier:
+    """
+    Advanced verification system to confirm social media profiles
+    belong to the actual target through cross-referencing and content analysis.
+    """
     
     def __init__(self):
-        self.session = self._create_session()
-        self.user_agents = [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        ]
-        
-    def _create_session(self) -> requests.Session:
-        """Create a session with retry logic and connection pooling"""
-        session = requests.Session()
-        
-        # Configure retry strategy for transient failures
-        retry_strategy = Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "HEAD"]
-        )
-        
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        
-        return session
+        self.session = requests.Session()
+        self.confidence_threshold = 0.6  # Confidence score threshold (0-1)
     
-    def _get_random_headers(self) -> Dict[str, str]:
-        """Generate randomized headers to mimic real browser"""
-        return {
-            "User-Agent": random.choice(self.user_agents),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate, br",
-            "DNT": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Cache-Control": "max-age=0"
+    def verify_profile(
+        self, 
+        url: str, 
+        platform: str, 
+        target_name: str,
+        additional_info: Optional[Dict[str, str]] = None
+    ) -> Dict[str, any]:
+        """
+        Verify if a profile likely belongs to the target.
+        Returns verification result with confidence score.
+        
+        Args:
+            url: Profile URL
+            platform: Platform name (Twitter, LinkedIn, etc.)
+            target_name: Target's name
+            additional_info: Additional info about target (location, company, etc.)
+        """
+        verification_result = {
+            "verified": False,
+            "confidence_score": 0.0,
+            "verification_factors": [],
+            "extracted_data": {}
         }
-    
-    def _random_delay(self, min_seconds: float = 2.0, max_seconds: float = 5.0):
-        """Add random delay between requests to appear more human"""
-        delay = random.uniform(min_seconds, max_seconds)
-        logger.debug(f"Waiting {delay:.2f}s before next request")
-        time.sleep(delay)
-    
-    def _check_profile_exists(self, url: str, platform: str) -> Optional[Dict[str, str]]:
-        """
-        Check if a profile exists with detection avoidance.
-        Returns None if not found or error, dict with details if found.
-        """
+        
         try:
-            self._random_delay(2.0, 5.0)  # Random delay before each request
+            # Fetch profile content
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=15)
             
-            headers = self._get_random_headers()
+            if response.status_code != 200:
+                logger.warning(f"Could not fetch profile for verification: {url}")
+                return verification_result
             
-            # Set appropriate timeout
-            response = self.session.get(
-                url, 
-                headers=headers, 
-                timeout=15,
-                allow_redirects=True
+            soup = BeautifulSoup(response.text, 'html.parser')
+            content = response.text.lower()
+            
+            # Platform-specific verification
+            if "twitter" in platform.lower() or "x.com" in url:
+                verification_result = self._verify_twitter(soup, content, target_name, additional_info)
+            elif "linkedin" in platform.lower():
+                verification_result = self._verify_linkedin(soup, content, target_name, additional_info)
+            elif "github" in platform.lower():
+                verification_result = self._verify_github(soup, content, target_name, additional_info)
+            elif "instagram" in platform.lower():
+                verification_result = self._verify_instagram(soup, content, target_name, additional_info)
+            elif "facebook" in platform.lower():
+                verification_result = self._verify_facebook(soup, content, target_name, additional_info)
+            else:
+                # Generic verification
+                verification_result = self._verify_generic(soup, content, target_name, additional_info)
+            
+            # Determine if verified based on confidence threshold
+            verification_result["verified"] = (
+                verification_result["confidence_score"] >= self.confidence_threshold
             )
             
-            # Check for various success indicators
-            if response.status_code == 200:
-                # Additional verification based on platform
-                if self._verify_profile_content(response, platform):
-                    logger.info(f"✓ Found verified profile on {platform}: {url}")
-                    return {
-                        "platform": platform,
-                        "url": url,
-                        "status": "Verified",
-                        "status_code": response.status_code
-                    }
-                else:
-                    logger.warning(f"⚠ Profile found but verification failed on {platform}: {url}")
-                    return {
-                        "platform": platform,
-                        "url": url,
-                        "status": "Found (Unverified)",
-                        "status_code": response.status_code
-                    }
-            elif response.status_code == 404:
-                logger.debug(f"✗ No profile found on {platform}")
-                return None
-            elif response.status_code == 403:
-                logger.warning(f"⚠ Access forbidden on {platform} (possible blocking)")
-                return None
-            elif response.status_code == 429:
-                logger.error(f"⚠ Rate limited on {platform} - backing off")
-                time.sleep(30)  # Long backoff for rate limiting
-                return None
-            else:
-                logger.warning(f"? Unexpected status {response.status_code} on {platform}")
-                return None
-                
-        except requests.exceptions.Timeout:
-            logger.error(f"✗ Timeout checking {platform}")
-            return None
-        except requests.exceptions.ConnectionError:
-            logger.error(f"✗ Connection error checking {platform}")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"✗ Error checking {platform}: {e}")
-            return None
+            return verification_result
+            
+        except Exception as e:
+            logger.error(f"Error during profile verification: {e}")
+            return verification_result
     
-    def _verify_profile_content(self, response: requests.Response, platform: str) -> bool:
-        """
-        Verify that the response actually contains a valid profile.
-        This helps reduce false positives from landing pages or error pages.
-        """
-        content = response.text.lower()
+    def _calculate_name_similarity(self, found_name: str, target_name: str) -> float:
+        """Calculate similarity between names (0-1)"""
+        found_name = found_name.lower().strip()
+        target_name = target_name.lower().strip()
         
-        # Platform-specific verification markers
-        verification_markers = {
-            "twitter": ["profile", "tweets", "following", "followers"],
-            "instagram": ["followers", "following", "posts", "instagram"],
-            "facebook": ["facebook", "profile", "friends", "posts"],
-            "linkedin": ["linkedin", "experience", "connections", "profile"],
-            "github": ["repositories", "contributions", "github", "profile"],
-            "pinterest": ["pinterest", "pins", "boards", "followers"],
-            "tiktok": ["tiktok", "followers", "following", "likes"]
+        # Direct match
+        if found_name == target_name:
+            return 1.0
+        
+        # Partial match (first name, last name)
+        found_parts = set(found_name.split())
+        target_parts = set(target_name.split())
+        
+        if found_parts & target_parts:  # Any overlap
+            overlap_ratio = len(found_parts & target_parts) / len(target_parts)
+            return min(overlap_ratio, 0.8)  # Cap partial matches at 0.8
+        
+        # Fuzzy string matching
+        return SequenceMatcher(None, found_name, target_name).ratio()
+    
+    def _extract_metadata(self, soup: BeautifulSoup, selectors: List[str]) -> Optional[str]:
+        """Extract metadata from HTML using multiple selectors"""
+        for selector in selectors:
+            elements = soup.select(selector)
+            if elements:
+                text = elements[0].get_text(strip=True)
+                if text:
+                    return text
+        return None
+    
+    def _verify_twitter(
+        self, 
+        soup: BeautifulSoup, 
+        content: str, 
+        target_name: str,
+        additional_info: Optional[Dict] = None
+    ) -> Dict:
+        """Twitter-specific verification"""
+        result = {
+            "verified": False,
+            "confidence_score": 0.0,
+            "verification_factors": [],
+            "extracted_data": {}
         }
         
-        platform_key = platform.lower().replace(" company", "").replace("linkedin company", "linkedin")
-        markers = verification_markers.get(platform_key, [])
+        # Extract profile name
+        name_selectors = [
+            'div[data-testid="UserName"]',
+            'span.css-901oao.css-16my406',
+            'meta[property="og:title"]'
+        ]
         
-        # Check if at least 2 markers are present
-        matches = sum(1 for marker in markers if marker in content)
+        found_name = self._extract_metadata(soup, name_selectors)
+        if found_name:
+            result["extracted_data"]["display_name"] = found_name
+            name_score = self._calculate_name_similarity(found_name, target_name)
+            if name_score > 0.7:
+                result["confidence_score"] += name_score * 0.5
+                result["verification_factors"].append(f"Name match: {name_score:.2f}")
         
-        # Also check for common "not found" indicators
-        not_found_markers = ["page not found", "doesn't exist", "isn't available", "suspended"]
-        has_not_found = any(marker in content for marker in not_found_markers)
-        
-        return matches >= 2 and not has_not_found
-
-
-def run_social_media_checks(target: str, target_type: str, config: Dict) -> List[Dict[str, str]]:
-    """
-    Enhanced social media checking with verification and evasion.
-    """
-    checker = SocialMediaChecker()
-    results = []
-    
-    # Define platforms with multiple possible URL patterns
-    platforms_config = {
-        "Twitter": ["https://twitter.com/{}", "https://x.com/{}"],
-        "Instagram": ["https://www.instagram.com/{}"],
-        "Facebook": ["https://www.facebook.com/{}"],
-        "LinkedIn": ["https://www.linkedin.com/in/{}"],
-        "LinkedIn Company": ["https://www.linkedin.com/company/{}"],
-        "GitHub": ["https://github.com/{}"],
-        "Pinterest": ["https://www.pinterest.com/{}"],
-        "TikTok": ["https://www.tiktok.com/@{}"]
-    }
-    
-    # Filter platforms based on target type
-    if target_type == "company":
-        platforms_config.pop("LinkedIn", None)
-    else:
-        platforms_config.pop("LinkedIn Company", None)
-    
-    logger.info(f"Checking {len(platforms_config)} platforms for: {target}")
-    logger.info("Using detection avoidance measures (this will take time)...")
-    
-    for platform, url_patterns in platforms_config.items():
-        # Try each URL pattern for the platform
-        for url_pattern in url_patterns:
-            url = url_pattern.format(target)
-            result = checker._check_profile_exists(url, platform)
+        # Extract bio
+        bio_selectors = [
+            'div[data-testid="UserDescription"]',
+            'meta[property="og:description"]'
+        ]
+        bio = self._extract_metadata(soup, bio_selectors)
+        if bio:
+            result["extracted_data"]["bio"] = bio
             
-            if result:
-                results.append(result)
-                break  # Found valid profile, no need to try other patterns
+            # Check for additional info in bio
+            if additional_info:
+                if additional_info.get("company") and additional_info["company"].lower() in bio.lower():
+                    result["confidence_score"] += 0.2
+                    result["verification_factors"].append("Company mentioned in bio")
+                
+                if additional_info.get("location") and additional_info["location"].lower() in bio.lower():
+                    result["confidence_score"] += 0.15
+                    result["verification_factors"].append("Location mentioned in bio")
+        
+        # Check verification badge
+        if 'verified' in content or 'blue check' in content:
+            result["extracted_data"]["verified_account"] = True
+            result["confidence_score"] += 0.15
+            result["verification_factors"].append("Verified account")
+        
+        return result
     
-    logger.info(f"Completed social media checks: {len(results)} profiles found")
-    return results
+    def _verify_linkedin(
+        self, 
+        soup: BeautifulSoup, 
+        content: str, 
+        target_name: str,
+        additional_info: Optional[Dict] = None
+    ) -> Dict:
+        """LinkedIn-specific verification"""
+        result = {
+            "verified": False,
+            "confidence_score": 0.0,
+            "verification_factors": [],
+            "extracted_data": {}
+        }
+        
+        # Extract name
+        name_selectors = [
+            'h1.text-heading-xlarge',
+            'meta[property="og:title"]',
+            'title'
+        ]
+        found_name = self._extract_metadata(soup, name_selectors)
+        if found_name:
+            # Clean LinkedIn title format ("Name | LinkedIn")
+            found_name = found_name.split('|')[0].strip()
+            result["extracted_data"]["name"] = found_name
+            
+            name_score = self._calculate_name_similarity(found_name, target_name)
+            if name_score > 0.7:
+                result["confidence_score"] += name_score * 0.6
+                result["verification_factors"].append(f"Name match: {name_score:.2f}")
+        
+        # Extract current position/company
+        if additional_info and additional_info.get("company"):
+            company = additional_info["company"].lower()
+            if company in content:
+                result["confidence_score"] += 0.3
+                result["verification_factors"].append("Company match")
+                result["extracted_data"]["company_found"] = True
+        
+        # Extract location
+        if additional_info and additional_info.get("location"):
+            location = additional_info["location"].lower()
+            if location in content:
+                result["confidence_score"] += 0.1
+                result["verification_factors"].append("Location match")
+        
+        return result
+    
+    def _verify_github(
+        self, 
+        soup: BeautifulSoup, 
+        content: str, 
+        target_name: str,
+        additional_info: Optional[Dict] = None
+    ) -> Dict:
+        """GitHub-specific verification"""
+        result = {
+            "verified": False,
+            "confidence_score": 0.0,
+            "verification_factors": [],
+            "extracted_data": {}
+        }
+        
+        # Extract name
+        name_selectors = [
+            'span[itemprop="name"]',
+            'meta[property="og:title"]'
+        ]
+        found_name = self._extract_metadata(soup, name_selectors)
+        if found_name:
+            result["extracted_data"]["name"] = found_name
+            name_score = self._calculate_name_similarity(found_name, target_name)
+            if name_score > 0.7:
+                result["confidence_score"] += name_score * 0.5
+                result["verification_factors"].append(f"Name match: {name_score:.2f}")
+        
+        # Extract bio
+        bio_selectors = ['div[data-bio-text]', 'meta[property="og:description"]']
+        bio = self._extract_metadata(soup, bio_selectors)
+        if bio:
+            result["extracted_data"]["bio"] = bio
+            
+            if additional_info:
+                # Check for company/location in bio
+                if additional_info.get("company") and additional_info["company"].lower() in bio.lower():
+                    result["confidence_score"] += 0.25
+                    result["verification_factors"].append("Company in bio")
+        
+        # Check for email in profile
+        if 'email' in content or '@' in content:
+            emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', content)
+            if emails:
+                result["extracted_data"]["emails"] = emails
+                result["confidence_score"] += 0.15
+                result["verification_factors"].append("Email found")
+        
+        return result
+    
+    def _verify_instagram(
+        self, 
+        soup: BeautifulSoup, 
+        content: str, 
+        target_name: str,
+        additional_info: Optional[Dict] = None
+    ) -> Dict:
+        """Instagram-specific verification"""
+        result = {
+            "verified": False,
+            "confidence_score": 0.0,
+            "verification_factors": [],
+            "extracted_data": {}
+        }
+        
+        # Instagram is heavily JS-rendered, metadata is key
+        name_selectors = ['meta[property="og:title"]']
+        found_name = self._extract_metadata(soup, name_selectors)
+        
+        if found_name:
+            # Clean Instagram format
+            found_name = found_name.split('(')[0].strip()
+            result["extracted_data"]["name"] = found_name
+            
+            name_score = self._calculate_name_similarity(found_name, target_name)
+            if name_score > 0.7:
+                result["confidence_score"] += name_score * 0.5
+                result["verification_factors"].append(f"Name match: {name_score:.2f}")
+        
+        # Check for verification badge
+        if 'verified' in content:
+            result["confidence_score"] += 0.2
+            result["verification_factors"].append("Verified account")
+        
+        return result
+    
+    def _verify_facebook(
+        self, 
+        soup: BeautifulSoup, 
+        content: str, 
+        target_name: str,
+        additional_info: Optional[Dict] = None
+    ) -> Dict:
+        """Facebook-specific verification"""
+        result = {
+            "verified": False,
+            "confidence_score": 0.0,
+            "verification_factors": [],
+            "extracted_data": {}
+        }
+        
+        # Extract from meta tags
+        name_selectors = ['meta[property="og:title"]', 'title']
+        found_name = self._extract_metadata(soup, name_selectors)
+        
+        if found_name:
+            result["extracted_data"]["name"] = found_name
+            name_score = self._calculate_name_similarity(found_name, target_name)
+            if name_score > 0.7:
+                result["confidence_score"] += name_score * 0.5
+                result["verification_factors"].append(f"Name match: {name_score:.2f}")
+        
+        # Facebook provides limited public info, lower confidence by default
+        result["confidence_score"] *= 0.8
+        
+        return result
+    
+    def _verify_generic(
+        self, 
+        soup: BeautifulSoup, 
+        content: str, 
+        target_name: str,
+        additional_info: Optional[Dict] = None
+    ) -> Dict:
+        """Generic verification for unknown platforms"""
+        result = {
+            "verified": False,
+            "confidence_score": 0.0,
+            "verification_factors": [],
+            "extracted_data": {}
+        }
+        
+        # Check if target name appears prominently
+        if target_name.lower() in content:
+            result["confidence_score"] += 0.4
+            result["verification_factors"].append("Target name found in content")
+        
+        return result
+    
+    def cross_reference_profiles(
+        self, 
+        profiles: List[Dict[str, str]]
+    ) -> Dict[str, any]:
+        """
+        Cross-reference multiple profiles to increase confidence.
+        Looks for consistent information across platforms.
+        """
+        if len(profiles) < 2:
+            return {"cross_reference_score": 0.0, "shared_indicators": []}
+        
+        shared_indicators = []
+        cross_ref_score = 0.0
+        
+        # Extract all linked accounts/URLs from each profile
+        linked_accounts = {}
+        for profile in profiles:
+            platform = profile.get("platform")
+            url = profile.get("url")
+            
+            # Check if other profiles are mentioned
+            for other_profile in profiles:
+                if other_profile != profile:
+                    other_platform = other_profile.get("platform")
+                    if other_platform.lower() in url.lower():
+                        shared_indicators.append(
+                            f"{platform} links to {other_platform}"
+                        )
+                        cross_ref_score += 0.2
+        
+        return {
+            "cross_reference_score": min(cross_ref_score, 1.0),
+            "shared_indicators": shared_indicators
+        }
+
+
+def enhanced_social_media_check_with_verification(
+    target: str,
+    target_type: str,
+    config: Dict,
+    additional_info: Optional[Dict] = None
+) -> List[Dict]:
+    """
+    Combined function: check for profiles AND verify them.
+    
+    Args:
+        target: Target username/name
+        target_type: "individual" or "company"
+        config: Configuration dict
+        additional_info: Dict with keys like "company", "location", etc.
+    """
+    from src.modules.social_media import run_social_media_checks
+    
+    # First, find potential profiles
+    logger.info("Phase 1: Discovering potential profiles...")
+    potential_profiles = run_social_media_checks(target, target_type, config)
+    
+    # Then, verify each one
+    logger.info("Phase 2: Verifying discovered profiles...")
+    verifier = ProfileVerifier()
+    verified_profiles = []
+    
+    for profile in potential_profiles:
+        url = profile.get("url")
+        platform = profile.get("platform")
+        
+        logger.info(f"Verifying {platform} profile...")
+        verification = verifier.verify_profile(url, platform, target, additional_info)
+        
+        # Combine profile data with verification results
+        profile["verification"] = verification
+        profile["confidence_score"] = verification["confidence_score"]
+        profile["verified"] = verification["verified"]
+        
+        if verification["verified"]:
+            verified_profiles.append(profile)
+            logger.info(f"✓ {platform} profile verified (confidence: {verification['confidence_score']:.2f})")
+        else:
+            logger.warning(f"✗ {platform} profile verification failed (confidence: {verification['confidence_score']:.2f})")
+    
+    # Cross-reference all verified profiles
+    if len(verified_profiles) > 1:
+        logger.info("Phase 3: Cross-referencing verified profiles...")
+        cross_ref = verifier.cross_reference_profiles(verified_profiles)
+        
+        # Add cross-reference data to results
+        for profile in verified_profiles:
+            profile["cross_reference"] = cross_ref
+    
+    logger.info(f"Verification complete: {len(verified_profiles)}/{len(potential_profiles)} profiles verified")
+    
+    return verified_profiles

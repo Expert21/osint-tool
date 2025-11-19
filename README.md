@@ -36,6 +36,20 @@ A comprehensive, cross-platform command-line OSINT tool for gathering intelligen
 - Customizable timing and thresholds
 - Preset profiles: `default`, `quick_scan`, `deep_scan`
 
+### 🆕 Priority 3 Enhancements
+
+#### 🌐 Domain & Subdomain Enumeration
+- **DNS Analysis**: Retrieves A, AAAA, MX, TXT, NS, SOA records
+- **Subdomain Discovery**: Queries Certificate Transparency logs
+- **Active Enumeration**: Rate-limited subdomain bruteforcing
+- **Integration**: Automatically runs for company targets
+
+#### 🧙 Interactive Wizard
+- **Guided Mode**: Step-by-step CLI configuration
+- **Profile Selection**: Easy choice of scan profiles
+- **Smart Defaults**: Context-aware suggestions
+- **Visual Interface**: Color-coded prompts and menus
+
 ## 📦 Installation
 
 ### Prerequisites
@@ -65,8 +79,15 @@ python main.py --create-profiles
 - `pyyaml` - YAML configuration
 - `dnspython` - DNS/MX lookups
 - `validators` - Email validation
+- `reportlab` - PDF generation
 
 ## 🎯 Usage
+
+### Interactive Mode (New!)
+```bash
+# Start the guided wizard
+python main.py --interactive
+```
 
 ### Basic Scan
 ```bash
@@ -75,6 +96,12 @@ python main.py --target "johndoe" --type individual
 
 # Company target
 python main.py --target "openai" --type company --output report.csv
+```
+
+### Domain Enumeration
+```bash
+# Run domain enumeration
+python main.py --target "example.com" --type company --domain-enum
 ```
 
 ### Email Enumeration

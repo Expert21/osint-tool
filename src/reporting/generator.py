@@ -1,18 +1,31 @@
 import json
 import csv
 import logging
+from src.reporting.html_report import generate_html_report
+from src.reporting.markdown_report import generate_markdown_report
+from src.reporting.pdf_report import generate_pdf_report
+from src.reporting.stix_export import generate_stix_report
 
 logger = logging.getLogger("OSINT_Tool")
 
 def generate_report(results, output_file):
     """
     Generates a report from the results.
-    Supports JSON and CSV formats based on file extension.
+    Supports JSON, CSV, HTML, Markdown, PDF, and STIX formats.
     """
-    if output_file.endswith('.json'):
-        _generate_json_report(results, output_file)
+    # Check for compound extensions first (e.g., .stix.json before .json)
+    if output_file.endswith('.stix.json') or output_file.endswith('.stix'):
+        generate_stix_report(results, output_file)
+    elif output_file.endswith('.html'):
+        generate_html_report(results, output_file)
+    elif output_file.endswith('.md') or output_file.endswith('.markdown'):
+        generate_markdown_report(results, output_file)
+    elif output_file.endswith('.pdf'):
+        generate_pdf_report(results, output_file)
     elif output_file.endswith('.csv'):
         _generate_csv_report(results, output_file)
+    elif output_file.endswith('.json'):
+        _generate_json_report(results, output_file)
     else:
         logger.warning("Unknown file extension. Defaulting to JSON.")
         _generate_json_report(results, output_file + ".json")

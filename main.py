@@ -11,6 +11,12 @@ from src.modules.email_enumeration import run_email_enumeration
 from src.reporting.generator import generate_report
 from src.modules.profile_verification import enhanced_social_media_check_with_verification
 
+# Priority 2 & 3 imports
+from src.modules.username_generator import generate_username_variations
+from src.core.cache_manager import get_cache_manager
+from src.modules.domain_enum import run_domain_enumeration
+from src.core.interactive import run_interactive_mode
+
 def main():
     parser = argparse.ArgumentParser(
         description="OSINT Tool - Social Media & Web Search with Verification",
@@ -20,11 +26,17 @@ Examples:
   # Basic scan
   python main.py --target "johndoe" --type individual
   
-  # Use configuration profile
-  python main.py --target "johndoe" --type individual --config quick_scan
+  # Interactive mode
+  python main.py --interactive
   
   # With email enumeration
   python main.py --target "John Doe" --type individual --email-enum --domain company.com
+  
+  # With username variations
+  python main.py --target "johndoe" --type individual --username-variations --include-leet
+  
+  # Domain enumeration
+  python main.py --target "example.com" --type company --domain-enum
   
   # List or create profiles
   python main.py --list-profiles
@@ -35,7 +47,22 @@ Examples:
     # Required arguments (but not for utility commands)
     parser.add_argument("--target", help="Target name (individual or company)")
     parser.add_argument("--type", choices=["individual", "company"], help="Type of target")
-    parser.add_argument("--output", default="report.json", help="Output report file (.json or .csv)")
+    parser.add_argument("--output", default="report.json", help="Output report file")
+    
+    # Configuration arguments
+    parser.add_argument("--config", help="Configuration profile to use (e.g., default, quick_scan)")
+    parser.add_argument("--list-profiles", action="store_true", help="List available configuration profiles")
+    parser.add_argument("--create-profiles", action="store_true", help="Create default configuration profiles")
+    
+    # Email Enumeration arguments
+    parser.add_argument("--email-enum", action="store_true", help="Enable email enumeration")
+    parser.add_argument("--domain", help="Primary domain for email enumeration")
+    parser.add_argument("--domains", nargs="+", help="Additional domains for email enumeration")
+    
+    # Verification arguments
+    parser.add_argument("--company", help="Company name for verification context")
+    parser.add_argument("--location", help="Location for verification context")
+    parser.add_argument("--email", help="Known email for verification context")
     
     # Optional flags
     parser.add_argument("--no-verify", action="store_true", help="Skip profile verification (faster)")
@@ -44,29 +71,43 @@ Examples:
     parser.add_argument("--no-progress", action="store_true", help="Disable progress indicators")
     parser.add_argument("--no-dedup", action="store_true", help="Disable deduplication")
     
-    # Configuration
-    parser.add_argument("--config", help="Configuration profile name (e.g., 'quick_scan', 'deep_scan')")
-    parser.add_argument("--list-profiles", action="store_true", help="List available configuration profiles")
-    parser.add_argument("--create-profiles", action="store_true", help="Create default configuration profiles")
+    # Priority 2: Username Variations
+    parser.add_argument("--username-variations", action="store_true", help="Try username variations on social media")
+    parser.add_argument("--include-leet", action="store_true", help="Include leet speak variations (e.g., j0hnd0e)")
+    parser.add_argument("--include-suffixes", action="store_true", help="Include number suffixes (e.g., johndoe123)")
     
-    # Email enumeration
-    parser.add_argument("--email-enum", action="store_true", help="Enable email enumeration")
-    parser.add_argument("--domain", help="Domain for email enumeration (e.g., company.com)")
-    parser.add_argument("--domains", nargs="+", help="Multiple domains for email enumeration")
+    # Priority 2: Cache Management
+    parser.add_argument("--clear-cache", action="store_true", help="Clear all cached results")
+    parser.add_argument("--cache-stats", action="store_true", help="Show cache statistics")
     
-    # Verification helpers
-    parser.add_argument("--company", help="Target's company (helps verification)")
-    parser.add_argument("--location", help="Target's location (helps verification)")
-    parser.add_argument("--email", help="Known email (helps verification)")
+    # Priority 3: Interactive Mode & Domain Enumeration
+    parser.add_argument("--interactive", "-i", action="store_true", help="Run in interactive wizard mode")
+    parser.add_argument("--domain-enum", action="store_true", help="Run domain/subdomain enumeration")
     
     args = parser.parse_args()
     
     # Setup logger
     logger = setup_logger()
     
+    # Handle interactive mode first (it will gather all args)
+    if args.interactive:
+        wizard_config = run_interactive_mode()
+        if not wizard_config:
+            return 0
+        # Map wizard config to args namespace
+        for key, value in wizard_config.items():
+            setattr(args, key, value)
+    
     # Handle configuration profile commands (these don't require target/type)
     config_manager = ConfigManager()
     
+    if args.create_profiles:
+        config_manager.create_default_profile()
+        config_manager.create_quick_scan_profile()
+        config_manager.create_deep_scan_profile()
+        logger.info("✓ Configuration profiles created successfully")
+        return 0
+        
     if args.list_profiles:
         profiles = config_manager.list_profiles()
         logger.info("Available configuration profiles:")
@@ -74,25 +115,32 @@ Examples:
             logger.info(f"  - {profile}")
         return 0
     
-    if args.create_profiles:
-        logger.info("Creating default configuration profiles...")
-        config_manager.create_default_profile()
-        config_manager.create_quick_scan_profile()
-        config_manager.create_deep_scan_profile()
-        logger.info("✓ Created profiles: default, quick_scan, deep_scan")
+    # Handle cache management commands
+    if args.clear_cache:
+        cache = get_cache_manager()
+        cache.clear_all()
+        logger.info("✓ Cache cleared")
         return 0
     
-    # Validate required arguments for scan operations
-    if not args.target or not args.type:
-        parser.error("--target and --type are required for scan operations")
+    if args.cache_stats:
+        cache = get_cache_manager()
+        stats = cache.get_stats()
+        logger.info("Cache Statistics:")
+        logger.info(f"  Total Entries: {stats['total_entries']}")
+        logger.info(f"  Valid Entries: {stats['valid_entries']}")
+        logger.info(f"  Expired Entries: {stats['expired_entries']}")
+        logger.info(f"  Database Size: {stats['database_size_mb']} MB")
+        return 0
     
+    # Validate required arguments for scan
+    if not args.target or not args.type:
+        parser.error("the following arguments are required: --target, --type")
+        
     # Load configuration
     if args.config:
         config_dict = config_manager.load_config(args.config)
     else:
         config_dict = config_manager.load_config('default')
-    
-    config = load_config()  # Load env vars
     
     # Initialize progress tracker
     use_progress = not args.no_progress and config_dict.get('features', {}).get('progress_indicators', True)
@@ -109,8 +157,22 @@ Examples:
         "target_type": args.type,
         "search_engines": [],
         "social_media": [],
-        "emails": []
+        "emails": [],
+        "domain_data": {}
     }
+    
+    # Run Domain Enumeration (Priority 3)
+    if args.domain_enum or (args.type == 'company' and config_dict.get('features', {}).get('domain_enum', False)):
+        logger.info("\n[Domain Enumeration] Running domain analysis...")
+        logger.info("-" * 60)
+        domain = args.domain if args.domain else args.target
+        try:
+            domain_results = run_domain_enumeration(domain, bruteforce=False)
+            results['domain_data'] = domain_results
+            logger.info(f"✓ Found {domain_results['subdomain_count']} subdomains")
+            logger.info(f"✓ Retrieved {len(domain_results['dns_records'])} DNS record types")
+        except Exception as e:
+            logger.error(f"Domain enumeration failed: {e}")
     
     # Run Email Enumeration (if enabled)
     if args.email_enum and config_dict.get('features', {}).get('email_enumeration', True):
@@ -139,15 +201,35 @@ Examples:
             logger.error(f"Search engine module failed: {e}")
             results['search_engines'] = []
     
-    # Run Social Media Checks
+    # Run Social Media Checks (with optional username variations)
     if not args.skip_social:
         logger.info("\n[Social Media] Running social media modules...")
         logger.info("-" * 60)
         
+        # Generate username variations if requested (Priority 2)
+        target_names = [args.target]
+        if args.username_variations:
+            try:
+                variations = generate_username_variations(
+                    args.target,
+                    include_leet=args.include_leet,
+                    include_suffixes=args.include_suffixes,
+                    max_variations=20
+                )
+                target_names.extend(variations[:10])  # Limit to avoid excessive requests
+                logger.info(f"Generated {len(variations)} username variations, checking top 10...")
+            except Exception as e:
+                logger.error(f"Username variation generation failed: {e}")
+        
         try:
             if args.no_verify:
                 logger.info("Verification disabled (--no-verify)")
-                results['social_media'] = run_social_media_checks(args.target, args.type, config_dict)
+                # Check all target name variations
+                all_social_results = []
+                for name in target_names:
+                    social_results = run_social_media_checks(name, args.type, config_dict)
+                    all_social_results.extend(social_results)
+                results['social_media'] = all_social_results
             else:
                 additional_info = {}
                 if args.company:
@@ -157,6 +239,8 @@ Examples:
                 if args.email:
                     additional_info["email"] = args.email
                 
+                # For username variations with verification, check primary name only
+                # (verification is expensive, so we don't do it for all variations)
                 results['social_media'] = enhanced_social_media_check_with_verification(
                     target=args.target,
                     target_type=args.type,
@@ -203,6 +287,8 @@ Examples:
     logger.info(f"  Social Profiles: {len(results.get('social_media', []))}")
     if args.email_enum:
         logger.info(f"  Email Addresses: {results.get('emails', {}).get('valid_format_count', 0)}")
+    if args.domain_enum and results.get('domain_data'):
+        logger.info(f"  Subdomains Found: {results['domain_data'].get('subdomain_count', 0)}")
     if 'statistics' in results:
         stats = results['statistics']
         logger.info(f"  High Quality Results: {stats.get('high_quality_results', 0)}")

@@ -8,3 +8,4 @@ tqdm
 pyyaml
 dnspython
 validators
+reportlab

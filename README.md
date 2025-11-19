@@ -117,6 +117,9 @@ pip install -r requirements.txt
 
 # Create configuration profiles
 hermes --create-profiles
+
+# Verify installation (test all modules)
+python hermes-test.py
 ```
 
 ### Basic Usage

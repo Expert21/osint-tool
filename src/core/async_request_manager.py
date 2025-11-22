@@ -3,7 +3,10 @@ import aiohttp
 import logging
 import random
 import os
+import ipaddress
 from typing import Optional, Dict, Any, List, Union
+from src.core.url_validator import URLValidator
+from src.core.resource_limiter import ResourceLimiter
 
 logger = logging.getLogger("OSINT_Tool")
 
@@ -47,45 +50,81 @@ class AsyncRequestManager:
             pass
 
     def load_proxies(self):
-        """Load proxies from file"""
+        """Load and validate proxies from file."""
         if not self.proxy_file or not os.path.exists(self.proxy_file):
             return
             
         try:
             with open(self.proxy_file, 'r') as f:
-                self.proxies = [line.strip() for line in f if line.strip()]
-            logger.info(f"Loaded {len(self.proxies)} proxies from {self.proxy_file}")
+                raw_proxies = [line.strip() for line in f if line.strip()]
+            
+            # Validate each proxy
+            valid_proxies = []
+            for proxy in raw_proxies:
+                if URLValidator.validate_proxy(proxy):
+                    valid_proxies.append(proxy)
+            
+            self.proxies = valid_proxies
+            logger.info(f"Loaded {len(self.proxies)} valid proxies from {self.proxy_file}")
         except Exception as e:
             logger.error(f"Failed to load proxies: {e}")
 
     async def fetch_free_proxies(self):
-        """Fetch free proxies from public sources"""
+        """Fetch free proxies with validation."""
         logger.info("Auto-fetching free proxies...")
         url = "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all"
         
+        # Validate source URL
+        if not URLValidator.is_safe_url(url):
+            logger.error("Proxy source URL failed security validation")
+            return
+        
         try:
-            # Use a temporary session to avoid circular dependency or issues
+            # Use a temporary session to avoid circular dependency
             async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
                     if response.status == 200:
                         text = await response.text()
-                        new_proxies = [line.strip() for line in text.splitlines() if line.strip()]
-                        self.proxies.extend(new_proxies)
-                        # Remove duplicates
-                        self.proxies = list(set(self.proxies))
-                        logger.info(f"Fetched {len(new_proxies)} proxies. Total: {len(self.proxies)}")
+                        raw_proxies = [line.strip() for line in text.splitlines() if line.strip()]
+                        
+                        # Validate each proxy
+                        validated = []
+                        for proxy in raw_proxies[:1000]:  # Limit to 1000
+                            if URLValidator.validate_proxy(proxy):
+                                validated.append(proxy)
+                        
+                        self.proxies.extend(validated)
+                        # Remove duplicates and limit total
+                        self.proxies = list(set(self.proxies))[:1000]
+                        logger.info(f"Validated {len(validated)} proxies. Total: {len(self.proxies)}")
                         
                         # Save to file if configured
                         if self.proxy_file:
-                            try:
-                                with open(self.proxy_file, 'w') as f:
-                                    f.write('\n'.join(self.proxies))
-                            except Exception as e:
-                                logger.warning(f"Could not save fetched proxies to file: {e}")
+                            self._save_proxies_securely()
                     else:
                         logger.error(f"Failed to fetch proxies: HTTP {response.status}")
         except Exception as e:
             logger.error(f"Error fetching proxies: {e}")
+    
+    def _save_proxies_securely(self):
+        """Save proxies with secure file permissions."""
+        try:
+            # Create parent directory if needed
+            if os.path.dirname(self.proxy_file):
+                os.makedirs(os.path.dirname(self.proxy_file), exist_ok=True)
+            
+            # Write proxies
+            with open(self.proxy_file, 'w') as f:
+                f.write('\n'.join(self.proxies))
+            
+            # Set secure permissions (owner read/write only)
+            try:
+                os.chmod(self.proxy_file, 0o600)
+            except Exception:
+                pass  # Windows doesn't support chmod
+                
+        except Exception as e:
+            logger.warning(f"Could not save proxies securely: {e}")
 
     def get_proxy(self) -> Optional[str]:
         """Get a random proxy from the list"""
@@ -117,8 +156,13 @@ class AsyncRequestManager:
         delay: float = 1.0
     ) -> Dict[str, Any]:
         """
-        Perform an HTTP request with retries, rate limiting, and proxy rotation.
+        Perform an HTTP request with retries, rate limiting, proxy rotation, and security checks.
         """
+        # SECURITY: Validate URL to prevent SSRF attacks
+        if not URLValidator.is_safe_url(url):
+            logger.error(f"Blocked unsafe URL: {url}")
+            return {"status": 0, "text": "", "error": "Unsafe URL blocked", "ok": False}
+        
         if headers is None:
             headers = {}
             
@@ -130,7 +174,7 @@ class AsyncRequestManager:
         # Auto-fetch proxies if needed and enabled (lazy load)
         if not self.proxies and self.auto_fetch:
             await self.fetch_free_proxies()
-            self.auto_fetch = False # Only try once to avoid loops
+            self.auto_fetch = False  # Only try once to avoid loops
         
         async with self.sem:
             for attempt in range(retries):
@@ -149,6 +193,10 @@ class AsyncRequestManager:
                         proxy=proxy
                     ) as response:
                         
+                        # SECURITY: Check content length before downloading
+                        if not ResourceLimiter.check_content_length(dict(response.headers)):
+                            return {"status": 0, "text": "", "error": "Response too large", "ok": False}
+                        
                         if response.status == 429:
                             retry_after = int(response.headers.get("Retry-After", 5))
                             logger.warning(f"Rate limited by {url}. Waiting {retry_after}s...")
@@ -158,15 +206,24 @@ class AsyncRequestManager:
                         # 403 Forbidden might indicate a bad proxy or bot detection
                         if response.status == 403 and proxy:
                             logger.debug(f"Proxy {proxy} blocked by {url}")
-                            # Optional: Remove bad proxy from list
-                            # if proxy.replace("http://", "") in self.proxies:
-                            #     self.proxies.remove(proxy.replace("http://", ""))
-                            continue 
-                            
+                            continue
+                        
+                        # HTTP 202 Accepted - retry once with delay
+                        if response.status == 202 and attempt < retries - 1:
+                            logger.debug(f"HTTP 202 Accepted - retrying after delay")
+                            await asyncio.sleep(2)
+                            continue
+                        
                         try:
-                            text = await response.text()
+                            # SECURITY: Read with size limit
+                            content_bytes = await ResourceLimiter.read_limited(response)
+                            text = content_bytes.decode('utf-8', errors='ignore')
+                        except ValueError as e:
+                            # Size limit exceeded
+                            return {"status": 0, "text": "", "error": str(e), "ok": False}
                         except UnicodeDecodeError:
-                            text = await response.read()
+                            # Fallback for binary content
+                            text = str(await response.read())
                             
                         return {
                             "status": response.status,

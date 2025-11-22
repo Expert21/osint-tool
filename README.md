@@ -4,7 +4,7 @@
 
 Hermes is a powerful, command-line OSINT (Open Source Intelligence) tool designed for comprehensive digital footprint analysis. Named after the Greek messenger god, Hermes swiftly gathers intelligence across multiple platforms and presents it in professional, actionable reports.
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.1-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -31,80 +31,27 @@ Hermes is a comprehensive OSINT framework that automates the process of gatherin
 
 ### Core Intelligence Gathering
 
-#### 🔎 Search Engine Integration
-- **6 Search Engines:** DuckDuckGo, Bing, Yahoo, Brave Search, Startpage, Yandex
-- Search dorking capabilities across all engines
-- Automatic fallback mechanisms
-- Advanced evasion techniques:
-  - Randomized header ordering
-  - Session cookie persistence
-  - Referrer spoofing
-  - Variable request delays
+**🔎 Search Engines** - DuckDuckGo, Bing, Yahoo, Brave, Startpage, Yandex with dorking capabilities and advanced evasion (header randomization, referrer spoofing, delays)
 
-#### 📱 Social Media Reconnaissance
-- **Platforms Supported:** LinkedIn, Twitter/X, GitHub, Instagram, Facebook, Reddit, TikTok, YouTube, Medium, Pinterest, Tumblr
-- Profile existence verification
-- Content-based validation
-- Quality scoring (0-100) for each finding
+**📱 Social Media** - LinkedIn, Twitter/X, GitHub, Instagram, Facebook, Reddit, TikTok, YouTube, Medium, Pinterest, Tumblr with profile verification and quality scoring
 
-#### 📧 Email Enumeration
-- 12+ common email pattern generation
-- MX record verification
-- Multi-domain support
-- Format validation
+**📧 Email Enumeration** - Pattern generation (12+ formats), MX validation, multi-domain support
 
-#### 🌐 Domain & Subdomain Enumeration
-- DNS record retrieval (A, AAAA, MX, TXT, NS, SOA, CNAME)
-- Certificate Transparency log queries
-- Rate-limited subdomain bruteforcing
-- Customizable wordlists
+**🌐 Domain Analysis** - DNS records, Certificate Transparency logs, subdomain enumeration
 
 ### Advanced Features
 
-#### 🎯 Data Intelligence
-- **Deduplication** - Removes duplicate findings using URL normalization
-- **Correlation** - Identifies connections between profiles
-- **Quality Scoring** - Rates each finding from 0-100 based on verification
-- **Statistics** - Comprehensive analytics on scan results
+**🎯 Data Intelligence** - Deduplication, correlation analysis, quality scoring (0-100), comprehensive statistics
 
-#### 👥 Username Analysis
-- Basic pattern generation (john.doe, johndoe, j.doe)
-- Leet speak transformations (j0hnd0e)
-- Separator variations (john_doe, john-doe)
-- Number suffix testing (johndoe123)
+**👥 Username Variations** - Pattern generation, leet speak, separator variations, number suffixes
 
-#### 💾 Smart Caching
-- SQLite-based result storage
-- 24-hour automatic expiration
-- Cache statistics and management
-- Significant speed improvements on repeated scans
+**💾 Smart Caching** - SQLite storage with 24-hour expiration for faster repeated scans
 
-#### 📊 Professional Reporting
-- **HTML** - Beautiful, responsive reports with embedded CSS and statistics dashboard
-- **PDF** - Professional documents using ReportLab
-- **Markdown** - Clean, readable summaries
-- **JSON** - Structured data for further analysis
-- **STIX 2.1** - Industry-standard threat intelligence format
+**📊 Professional Reports** - HTML, PDF, Markdown, JSON, STIX 2.1 formats
 
-#### 🧙 Interactive Wizard
-- Guided step-by-step configuration
-- Smart defaults based on target type
-- Profile selection (Quick/Default/Deep scan)
-- Output format selection
+**🧙 Interactive Wizard** - Guided configuration with smart defaults
 
-### Configuration System
-
-#### 📝 YAML-Based Profiles
-- **Default** - Balanced speed and thoroughness
-- **Quick Scan** - Fast reconnaissance
-- **Deep Scan** - Comprehensive investigation
-- **Custom** - Create your own profiles
-
-#### ⚙️ Customizable Settings
-- Timing controls (delays, timeouts)
-- Platform toggles
-- Feature flags
-- Quality thresholds
+**📝 Configuration Profiles** - Default, Quick Scan, Deep Scan, or custom with YAML-based settings
 
 ---
 
@@ -127,73 +74,33 @@ hermes --create-profiles
 python hermes-test.py
 ```
 
-### Basic Usage
+### Usage Examples
 
 ```bash
-# Simple scan
-hermes --target "johndoe" --type individual
-
-# Interactive mode (recommended for beginners)
+# Quick start (interactive mode recommended for beginners)
 hermes --interactive
 
-# With email enumeration
-hermes --target "John Doe" --type individual --email-enum --domain company.com
-
-# Company investigation with domain analysis
-hermes --target "example.com" --type company --domain-enum
-
-# Generate HTML report
-hermes --target "johndoe" --type individual --output report.html
-```
-
----
-
-## 📖 Usage Examples
-
-### Individual Investigation
-```bash
-# Basic profile search
+# Individual scan
 hermes --target "johndoe" --type individual
 
-# Deep scan with email enumeration
-hermes --target "John Doe" --type individual --email-enum --domain company.com --config deep_scan
+# Individual with email enumeration
+hermes --target "John Doe" --type individual --email-enum --domain company.com
 
-# With username variations and leet speak
-hermes --target "johndoe" --type individual --username-variations --include-leet
-```
-
-### Company Intelligence
-```bash
-# Company profile with domain enumeration
+# Company with domain analysis
 hermes --target "example.com" --type company --domain-enum
 
-# Quick scan for company
-hermes --target "TechCorp" --type company --config quick_scan
-```
-
-### Report Generation
-```bash
-# HTML report with statistics dashboard
+# Generate reports (JSON, HTML, PDF, Markdown, STIX)
 hermes --target "johndoe" --type individual --output report.html
 
-# Professional PDF report
-hermes --target "johndoe" --type individual --output report.pdf
+# Deep scan with config profile
+hermes --target "johndoe" --type individual --config deep_scan
 
-# STIX 2.1 for threat intelligence platforms
-hermes --target "johndoe" --type individual --output intel.stix.json
-```
+# Username variations with leet speak
+hermes --target "johndoe" --type individual --username-variations --include-leet
 
-### Advanced Features
-```bash
 # Cache management
 hermes --cache-stats
 hermes --clear-cache
-
-# Skip specific modules
-hermes --target "johndoe" --type individual --skip-search --email-enum --domain company.com
-
-# Disable verification for faster scans
-hermes --target "johndoe" --type individual --no-verify
 ```
 
 ---
@@ -240,37 +147,44 @@ hermes --target "johndoe" --type individual --no-verify
 
 ---
 
-## 📁 Project Structure
+## � Release Notes
 
-```
-hermes/
-├── main.py                      # Entry point
-├── requirements.txt             # Dependencies
-├── config.yaml                  # Default configuration
-├── src/
-│   ├── core/
-│   │   ├── logger.py           # Logging system
-│   │   ├── config.py           # Environment config
-│   │   ├── config_manager.py   # YAML profile manager
-│   │   ├── progress_tracker.py # Progress bars
-│   │   ├── deduplication.py    # Data processing
-│   │   ├── cache_manager.py    # SQLite caching
-│   │   └── interactive.py      # Wizard interface
-│   ├── modules/
-│   │   ├── search_engines.py   # Search integration
-│   │   ├── social_media.py     # Social media checks
-│   │   ├── email_enumeration.py # Email generation
-│   │   ├── domain_enum.py      # DNS/subdomain analysis
-│   │   ├── username_generator.py # Username variations
-│   │   └── profile_verification.py # Content verification
-│   └── reporting/
-│       ├── generator.py        # Report router
-│       ├── html_report.py      # HTML generator
-│       ├── markdown_report.py  # Markdown generator
-│       ├── pdf_report.py       # PDF generator
-│       └── stix_export.py      # STIX 2.1 exporter
-└── .osint_profiles/            # Saved configurations
-```
+### v1.2.1 - Security Hardening (Current Release)
+
+**🔒 Security Updates:**
+- Encrypted credential storage with Fernet
+- SSRF protection with URL validation  
+- YAML configuration security (path traversal prevention)
+- Proxy validation with IP filtering
+- DoS protection with resource limits
+
+**🛡️ Vulnerabilities Fixed:**
+- ✅ Command injection in URL construction
+- ✅ YAML deserialization attacks
+- ✅ Credential exposure (encrypted storage)
+- ✅ Server-side request forgery (SSRF)
+- ✅ Unvalidated proxy injection
+- ✅ Resource exhaustion attacks
+
+**📦 New Security Modules:**
+- `input_validator.py`, `secrets_manager.py`, `url_validator.py`, `html_sanitizer.py`, `resource_limiter.py`
+
+**Dependencies:** Added `cryptography`, `bleach`
+
+### v1.2.0 - Async Performance
+
+- Complete async/await implementation
+- Proxy rotation with auto-fetch
+- JavaScript rendering via Playwright
+- Enhanced rate limit evasion
+- 10x performance improvement
+
+### v1.1.1 - Initial Release
+
+- Multi-platform OSINT scanning
+- Email enumeration and validation
+- Profile verification
+- Multiple output formats
 
 ---
 
@@ -309,29 +223,15 @@ thresholds:
 
 ## 📊 Output Formats
 
-### HTML Report
-- Responsive design with embedded CSS
-- Statistics dashboard with visual cards
-- Color-coded quality scores
-- Mobile-friendly layout
+**HTML** - Responsive design with embedded CSS, statistics dashboard, color-coded quality scores
 
-### PDF Report
-- Professional formatting
-- Executive summary table
-- Organized sections
-- Quality score breakdown
+**PDF** - Professional formatting with executive summary and quality score breakdown
 
-### Markdown Report
-- Clean, readable format
-- Tables for results
-- Statistics summary
-- GitHub-compatible
+**Markdown** - Clean, GitHub-compatible format with tables and statistics
 
-### STIX 2.1 Export
-- Industry-standard format
-- TAXII-compatible
-- Identity and Observed-Data objects
-- Proper timestamps and relationships
+**JSON** - Structured data for further analysis and automation
+
+**STIX 2.1** - Industry-standard threat intelligence format (TAXII-compatible)
 
 ---
 
@@ -344,6 +244,23 @@ thresholds:
 - **Threat Intelligence** - Gather information for security operations
 - **Journalism** - Research subjects for investigative reporting
 
+---
+
+## ⚠️ Legal & Ethical Considerations
+
+**IMPORTANT:** Hermes is designed for legitimate OSINT activities only.
+
+- ✅ Use only on publicly available information
+- ✅ Respect platform Terms of Service
+- ✅ Comply with local laws and regulations
+- ✅ Obtain proper authorization when required
+- ❌ Do not use for harassment or stalking
+- ❌ Do not use for unauthorized access attempts
+- ❌ Do not violate privacy laws
+
+**The developers are not responsible for misuse of this tool.**
+
+---
 ---
 
 ## ⚠️ Legal & Ethical Considerations

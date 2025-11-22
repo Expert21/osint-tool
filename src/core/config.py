@@ -1,17 +1,19 @@
 import os
-from dotenv import load_dotenv
+from src.core.secrets_manager import SecretsManager
 
 def load_config():
     """
-    Load configuration from environment variables and .env file.
+    Load configuration with secure credential handling.
+    Credentials are loaded from:
+    1. Environment variables (priority)
+    2. Encrypted local file
     """
-    load_dotenv()
+    secrets = SecretsManager()
     
     config = {
-        "GOOGLE_API_KEY": os.getenv("GOOGLE_API_KEY"),
-        "GOOGLE_CSE_ID": os.getenv("GOOGLE_CSE_ID"),
-        "TWITTER_BEARER_TOKEN": os.getenv("TWITTER_BEARER_TOKEN"),
-        # Add other keys here
+        "GOOGLE_API_KEY": secrets.get_credential("google_api_key"),
+        "GOOGLE_CSE_ID": secrets.get_credential("google_cse_id"),
+        "TWITTER_BEARER_TOKEN": secrets.get_credential("twitter_bearer_token"),
     }
     
     return config

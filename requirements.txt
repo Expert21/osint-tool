@@ -8,5 +8,10 @@ pyyaml
 dnspython
 validators
 reportlab
+
+# Security dependencies for v1.2.1
+cryptography>=41.0.0
+bleach>=6.0.0
+
 playwright
 aiohttp

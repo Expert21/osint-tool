@@ -1,6 +1,7 @@
 import os
 import yaml
 import logging
+import re
 from typing import Dict, Any, Optional
 from pathlib import Path
 
@@ -82,7 +83,7 @@ class ConfigManager:
     
     def load_config(self, profile_name: str = 'default') -> Dict[str, Any]:
         """
-        Load configuration from a profile file.
+        Load configuration from a profile file with security validation.
         
         Args:
             profile_name: Name of the profile to load (without .yaml extension)
@@ -90,7 +91,28 @@ class ConfigManager:
         Returns:
             Configuration dictionary
         """
+        # Validate profile name - prevent path traversal
+        if not re.match(r'^[a-zA-Z0-9_-]+$', profile_name):
+            logger.error(f"Invalid profile name '{profile_name}': only alphanumeric, dash, underscore allowed")
+            return self.DEFAULT_CONFIG.copy()
+        
+        if '..' in profile_name or '/' in profile_name or '\\' in profile_name:
+            logger.error(f"Invalid profile name '{profile_name}': path traversal detected")
+            return self.DEFAULT_CONFIG.copy()
+        
         profile_path = self.config_dir / f"{profile_name}.yaml"
+        
+        # Ensure path is within config directory
+        try:
+            resolved_path = profile_path.resolve()
+            resolved_config_dir = self.config_dir.resolve()
+            
+            if not str(resolved_path).startswith(str(resolved_config_dir)):
+                logger.error(f"Profile path outside allowed directory: {resolved_path}")
+                return self.DEFAULT_CONFIG.copy()
+        except Exception as e:
+            logger.error(f"Path validation failed: {e}")
+            return self.DEFAULT_CONFIG.copy()
         
         if not profile_path.exists():
             logger.warning(f"Profile '{profile_name}' not found, using default configuration")
@@ -98,7 +120,16 @@ class ConfigManager:
         
         try:
             with open(profile_path, 'r') as f:
-                loaded_config = yaml.safe_load(f)
+                # Use SafeLoader explicitly
+                loaded_config = yaml.load(f, Loader=yaml.SafeLoader)
+            
+            # Validate config is a dictionary
+            if not isinstance(loaded_config, dict):
+                logger.error("Config must be a dictionary")
+                return self.DEFAULT_CONFIG.copy()
+            
+            # Validate all values are safe types
+            self._validate_config_types(loaded_config)
             
             # Merge with default config to ensure all keys exist
             config = self._merge_configs(self.DEFAULT_CONFIG, loaded_config)
@@ -222,6 +253,32 @@ class ConfigManager:
         """
         features = self.get_feature_config()
         return features.get(feature_name, False)
+    
+    def _validate_config_types(self, config: dict, path: str = "") -> None:
+        """
+        Recursively validate config contains only safe types.
+        
+        Args:
+            config: Configuration dictionary to validate
+            path: Current path in config (for error messages)
+            
+        Raises:
+            ValueError: If unsafe type found
+        """
+        safe_types = (str, int, float, bool, type(None), dict, list)
+        
+        for key, value in config.items():
+            current_path = f"{path}.{key}" if path else key
+            
+            if not isinstance(value, safe_types):
+                raise ValueError(f"Unsafe type {type(value).__name__} at {current_path}")
+            
+            if isinstance(value, dict):
+                self._validate_config_types(value, current_path)
+            elif isinstance(value, list):
+                for i, item in enumerate(value):
+                    if not isinstance(item, safe_types):
+                        raise ValueError(f"Unsafe type in list at {current_path}[{i}]")
     
     def _merge_configs(self, base: Dict, override: Dict) -> Dict:
         """

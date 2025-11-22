@@ -147,7 +147,7 @@ hermes --clear-cache
 
 ---
 
-## � Release Notes
+## 📝 Release Notes
 
 ### v1.2.1 - Security Hardening (Current Release)
 

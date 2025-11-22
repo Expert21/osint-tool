@@ -61,3 +61,10 @@ api_keys:
   google_api_key: null
   google_cse_id: null
   twitter_bearer_token: null
+
+# Proxy Configuration
+proxy:
+  enabled: false
+  file: "proxies.txt"
+  auto_fetch: false      # Automatically fetch free proxies if file is empty
+  type: "http"           # http, https, socks5

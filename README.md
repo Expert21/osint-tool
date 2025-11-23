@@ -4,7 +4,7 @@
 
 Hermes is a powerful, command-line OSINT (Open Source Intelligence) tool designed for comprehensive digital footprint analysis. Named after the Greek messenger god, Hermes swiftly gathers intelligence across multiple platforms and presents it in professional, actionable reports.
 
-![Version](https://img.shields.io/badge/version-1.2.1-blue)
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -149,27 +149,40 @@ hermes --clear-cache
 
 ## 📝 Release Notes
 
-### v1.2.1 - Security Hardening (Current Release)
+### v1.3.0 - Intelligence Refactor (Current Release)
 
-**🔒 Security Updates:**
-- Encrypted credential storage with Fernet
-- SSRF protection with URL validation  
-- YAML configuration security (path traversal prevention)
-- Proxy validation with IP filtering
-- DoS protection with resource limits
+**🧠 Three-Tier Intelligence Architecture:**
+- **Passive Intelligence Module:** New stealth-first data gathering via HIBP breach data, PGP keyservers, and search engine dorking
+- **Email Enumeration Refactor:** Passive-first logic checks breaches/PGP before MX validation, reducing noise and rate limits
+- **Social Media Refactor:** Two-tier approach (passive dorking → active verification) with exponential backoff rate limiting
+- **Tiered Reporting:** Visual confidence scoring with green (confirmed) vs yellow (possible) badges, source metadata tags
+- **Scan Logger:** Structured JSON/CSV logging of all scan events, API errors, rate limits, and timeouts
+- **Stealth Mode:** `--passive` flag for OPSEC-sensitive investigations (no direct target contact)
+- **Enhanced Error Handling:** Graceful degradation with specific handling for rate limits, timeouts, and API errors
 
-**🛡️ Vulnerabilities Fixed:**
-- ✅ Command injection in URL construction
-- ✅ YAML deserialization attacks
-- ✅ Credential exposure (encrypted storage)
-- ✅ Server-side request forgery (SSRF)
-- ✅ Unvalidated proxy injection
-- ✅ Resource exhaustion attacks
+**Key Benefits:**
+- 🎯 Higher quality results with confidence scoring (0.0-1.0)
+- 🚀 Reduced rate limiting through passive-first approach
+- 🔍 Better data provenance (HIBP, PGP, Dork, Active Check)
+- 📊 Clearer reporting with confirmed vs possible separation
 
-**📦 New Security Modules:**
-- `input_validator.py`, `secrets_manager.py`, `url_validator.py`, `html_sanitizer.py`, `resource_limiter.py`
+### v1.2.2 - Security Hardening
 
-**Dependencies:** Added `cryptography`, `bleach`
+**🔒 Security Hardening (Medium & Low Severity):**
+- **Input Validation:** Integrated `InputValidator` to sanitize all CLI arguments and prevent injection
+- **Log Sanitization:** Implemented `SanitizingFormatter` to redact API keys, emails, and IPs from logs
+- **Browser Security:** Hardened Playwright launch configuration (no-sandbox, context isolation, anti-fingerprinting)
+- **Report Security:** Added CSP, X-Frame-Options, and other security headers to HTML reports
+- **Error Handling:** Implemented generic user-facing error messages with secure internal logging
+- **Dependencies:** Pinned all dependencies to secure versions
+
+### v1.2.1 - Critical Security Patches
+
+**🛡️ Critical & High Severity Fixes:**
+- **Credential Encryption:** Implemented Fernet encryption for secure credential storage
+- **SSRF & Injection Protection:** Added comprehensive URL validation and command injection prevention
+- **YAML Security:** Fixed path traversal and deserialization vulnerabilities in configuration loading
+- **DoS Protection:** Implemented resource limits and proxy validation with IP filtering
 
 ### v1.2.0 - Async Performance
 

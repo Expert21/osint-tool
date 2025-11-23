@@ -1,5 +1,6 @@
 import logging
 import sys
+import re
 from colorama import init, Fore, Style
 
 init(autoreset=True)
@@ -13,10 +14,23 @@ class ColoredFormatter(logging.Formatter):
         logging.CRITICAL: Fore.RED + Style.BRIGHT + "%(asctime)s - %(levelname)s - %(message)s" + Style.RESET_ALL
     }
 
+    SENSITIVE_PATTERNS = [
+        (re.compile(r'(api[_-]?key|token|password|secret)["\']?\s*[:=]\s*["\']?([^"\'&\s]+)', re.I), r'\1=***REDACTED***'),
+        (re.compile(r'([?&])(api[_-]?key|token|password)=([^&]+)', re.I), r'\1\2=***REDACTED***'),
+        (re.compile(r'\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b'), r'***EMAIL***'),
+        (re.compile(r'\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'), r'***IP***'),
+    ]
+
     def format(self, record):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt, datefmt="%H:%M:%S")
-        return formatter.format(record)
+        formatted = formatter.format(record)
+        
+        # Sanitize
+        for pattern, replacement in self.SENSITIVE_PATTERNS:
+            formatted = pattern.sub(replacement, formatted)
+            
+        return formatted
 
 def setup_logger():
     """

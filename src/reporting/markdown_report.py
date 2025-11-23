@@ -7,7 +7,7 @@ logger = logging.getLogger("OSINT_Tool")
 
 def generate_markdown_report(results: Dict[str, Any], output_file: str):
     """
-    Generate a clean Markdown report.
+    Generate a clean Markdown report with tiered results.
     
     Args:
         results: Results dictionary
@@ -31,71 +31,60 @@ def generate_markdown_report(results: Dict[str, Any], output_file: str):
         stats = results['statistics']
         md_content.append("## 📊 Summary Statistics\n")
         md_content.append(f"- **Total Results:** {stats.get('total_unique', 0)}")
-        md_content.append(f"- **Duplicates Removed:** {stats.get('duplicates_removed', 0)}")
-        md_content.append(f"- **Average Quality Score:** {stats.get('avg_quality_score', 0):.1f}/100")
-        md_content.append(f"- **High Quality Results:** {stats.get('high_quality_results', 0)}")
-        md_content.append(f"- **Connections Found:** {stats.get('connections_found', 0)}\n")
+        md_content.append(f"- **Confirmed Findings:** {stats.get('confirmed_count', 0)}")
+        md_content.append(f"- **Possible Findings:** {stats.get('possible_count', 0)}\n")
     
     # Email Enumeration
     if 'emails' in results and results['emails']:
-        emails = results['emails']
-        md_content.append("## 📧 Email Enumeration\n")
-        md_content.append(f"**Generated:** {emails.get('valid_format_count', 0)} potential email addresses\n")
+        emails_data = results['emails']
+        confirmed = emails_data.get('confirmed_emails', [])
+        possible = emails_data.get('possible_emails', [])
         
-        if emails.get('emails_generated'):
-            md_content.append("### Email Addresses\n")
-            for email in emails['emails_generated'][:20]:  # Limit to 20
-                md_content.append(f"- `{email}`")
+        md_content.append("## 📧 Email Intelligence\n")
+        
+        if confirmed:
+            md_content.append("### ✅ Confirmed Emails\n")
+            md_content.append("| Email | Source | Confidence |")
+            md_content.append("|-------|--------|------------|")
+            for item in confirmed:
+                email = item.get('email', 'Unknown')
+                source = item.get('source', 'Unknown')
+                conf = item.get('confidence', 1.0)
+                md_content.append(f"| {email} | {source} | {int(conf*100)}% |")
             md_content.append("")
-        
-        if emails.get('domains_with_mx'):
-            md_content.append(f"**Domains with MX Records:** {', '.join(emails['domains_with_mx'])}\n")
+            
+        if possible:
+            md_content.append("### ⚠️ Possible Emails\n")
+            md_content.append("| Email | Source | Confidence |")
+            md_content.append("|-------|--------|------------|")
+            for item in possible[:20]:
+                email = item.get('email', 'Unknown')
+                source = item.get('source', 'Pattern')
+                conf = item.get('confidence', 0.5)
+                md_content.append(f"| {email} | {source} | {int(conf*100)}% |")
+            if len(possible) > 20:
+                md_content.append(f"\n*...and {len(possible)-20} more*")
+            md_content.append("")
     
     # Social Media
     social_media = results.get('social_media', [])
     if social_media:
         md_content.append("## 👥 Social Media Profiles\n")
-        md_content.append("| Platform | Status | URL | Quality Score |")
-        md_content.append("|----------|--------|-----|---------------|")
+        md_content.append("| Platform | URL | Source | Confidence |")
+        md_content.append("|----------|-----|--------|------------|")
         
         for profile in social_media:
             platform = profile.get('platform', 'N/A')
-            status = profile.get('status', 'N/A')
             url = profile.get('url', 'N/A')
-            score = profile.get('quality_score', 0)
-            md_content.append(f"| {platform} | {status} | {url} | {score}/100 |")
+            source = profile.get('source', 'Unknown')
+            conf = profile.get('confidence', 0.0)
+            md_content.append(f"| {platform} | {url} | {source} | {int(conf*100)}% |")
         
-        md_content.append("")
-    
-    # Search Results
-    search_results = results.get('search_engines', [])
-    if search_results:
-        md_content.append("## 🔍 Search Engine Results\n")
-        md_content.append("| Source | Title | URL | Quality Score |")
-        md_content.append("|--------|-------|-----|---------------|")
-        
-        for result in search_results[:20]:  # Limit to 20
-            source = result.get('source', 'N/A')
-            title = result.get('title', 'N/A')[:50]  # Truncate long titles
-            url = result.get('url', 'N/A')
-            score = result.get('quality_score', 0)
-            md_content.append(f"| {source} | {title} | {url} | {score}/100 |")
-        
-        md_content.append("")
-    
-    # Connections
-    connections = results.get('connections', [])
-    if connections:
-        md_content.append("## 🔗 Connections\n")
-        for conn in connections:
-            conn_type = conn.get('type', 'Unknown')
-            description = conn.get('description', '')
-            md_content.append(f"- **{conn_type}**: {description}")
         md_content.append("")
     
     # Footer
     md_content.append("\n---")
-    md_content.append("\n*Generated by OSINT Tool*")
+    md_content.append("\n*Generated by Hermes OSINT Tool v1.3*")
     
     # Write to file
     with open(output_file, 'w', encoding='utf-8') as f:

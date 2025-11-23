@@ -7,7 +7,7 @@ logger = logging.getLogger("OSINT_Tool")
 
 def generate_html_report(results: Dict[str, Any], output_file: str):
     """
-    Generate a beautiful HTML report with embedded CSS and charts.
+    Generate a beautiful HTML report with tiered results (Confirmed vs Possible).
     
     Args:
         results: Results dictionary
@@ -19,16 +19,18 @@ def generate_html_report(results: Dict[str, Any], output_file: str):
     target_type = results.get('target_type', 'Unknown')
     stats = results.get('statistics', {})
     
-    # Calculate percentages for charts
+    # Calculate totals
     total_results = stats.get('total_unique', 0)
-    high_quality = stats.get('high_quality_results', 0)
-    avg_score = stats.get('avg_quality_score', 0)
     
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; img-src 'self' data: https:;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Referrer-Policy" content="no-referrer">
     <title>OSINT Report - {target}</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -107,29 +109,51 @@ def generate_html_report(results: Dict[str, Any], output_file: str):
             border-bottom: 1px solid #eee;
         }}
         tr:hover {{ background: #f8f9fa; }}
-        .quality-badge {{
+        .badge {{
             display: inline-block;
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 0.85em;
             font-weight: bold;
         }}
-        .quality-high {{ background: #28a745; color: white; }}
-        .quality-medium {{ background: #ffc107; color: #333; }}
-        .quality-low {{ background: #dc3545; color: white; }}
-        .email-list {{
+        .badge-confirmed {{ background: #28a745; color: white; }}
+        .badge-possible {{ background: #ffc107; color: #333; }}
+        .badge-high {{ background: #28a745; color: white; }}
+        .badge-medium {{ background: #ffc107; color: #333; }}
+        .badge-low {{ background: #dc3545; color: white; }}
+        
+        .email-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 10px;
-            margin-top: 15px;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
         }}
-        .email-item {{
+        .email-box {{
             background: #f8f9fa;
-            padding: 10px 15px;
-            border-radius: 5px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
+            padding: 20px;
+            border-radius: 10px;
         }}
+        .email-box h3 {{ margin-bottom: 15px; color: #555; }}
+        .email-item {{
+            background: white;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            border-left: 4px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .email-confirmed {{ border-left-color: #28a745; }}
+        .email-possible {{ border-left-color: #ffc107; }}
+        
+        .source-tag {{
+            font-size: 0.8em;
+            color: #666;
+            background: #eee;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }}
+        
         .footer {{
             background: #f8f9fa;
             padding: 20px;
@@ -149,37 +173,79 @@ def generate_html_report(results: Dict[str, Any], output_file: str):
         
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">Total Results</div>
+                <div class="stat-label">Total Findings</div>
                 <div class="stat-number">{total_results}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">High Quality</div>
-                <div class="stat-number">{high_quality}</div>
+                <div class="stat-label">Confirmed</div>
+                <div class="stat-number">{stats.get('confirmed_count', 0)}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Avg Score</div>
-                <div class="stat-number">{avg_score:.1f}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Duplicates Removed</div>
-                <div class="stat-number">{stats.get('duplicates_removed', 0)}</div>
+                <div class="stat-label">Possible</div>
+                <div class="stat-number">{stats.get('possible_count', 0)}</div>
             </div>
         </div>
 """
     
     # Email Enumeration Section
     if 'emails' in results and results['emails']:
-        emails = results['emails']
+        emails_data = results['emails']
+        confirmed = emails_data.get('confirmed_emails', [])
+        possible = emails_data.get('possible_emails', [])
+        
         html_content += f"""
         <div class="section">
-            <h2>📧 Email Enumeration</h2>
-            <p><strong>{emails.get('valid_format_count', 0)}</strong> potential email addresses generated</p>
-            <div class="email-list">
+            <h2>📧 Email Intelligence</h2>
+            <div class="email-grid">
+                <div class="email-box">
+                    <h3>✅ Confirmed Emails ({len(confirmed)})</h3>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Verified via Breach Data or PGP</p>
 """
-        for email in emails.get('emails_generated', [])[:30]:
-            html_content += f'                <div class="email-item">{email}</div>\n'
-        
-        html_content += """            </div>
+        if confirmed:
+            for item in confirmed:
+                email = item.get('email', 'Unknown')
+                source = item.get('source', 'Unknown')
+                conf = item.get('confidence', 1.0)
+                html_content += f"""
+                    <div class="email-item email-confirmed">
+                        <strong>{email}</strong>
+                        <div>
+                            <span class="source-tag">{source}</span>
+                            <span class="badge badge-confirmed">{int(conf*100)}%</span>
+                        </div>
+                    </div>
+"""
+        else:
+            html_content += "<p>No confirmed emails found.</p>"
+            
+        html_content += """
+                </div>
+                <div class="email-box">
+                    <h3>⚠️ Possible Emails</h3>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Generated from patterns & MX checked</p>
+"""
+        if possible:
+            for item in possible[:20]: # Limit to top 20 to avoid clutter
+                email = item.get('email', 'Unknown')
+                source = item.get('source', 'Pattern')
+                conf = item.get('confidence', 0.5)
+                html_content += f"""
+                    <div class="email-item email-possible">
+                        <span>{email}</span>
+                        <div>
+                            <span class="source-tag">{source}</span>
+                            <span class="badge badge-possible">{int(conf*100)}%</span>
+                        </div>
+                    </div>
+"""
+            if len(possible) > 20:
+                html_content += f"<p>...and {len(possible)-20} more</p>"
+        else:
+            html_content += "<p>No possible emails found.</p>"
+            
+        html_content += """
+                </div>
+            </div>
         </div>
 """
     
@@ -193,56 +259,22 @@ def generate_html_report(results: Dict[str, Any], output_file: str):
                 <thead>
                     <tr>
                         <th>Platform</th>
-                        <th>Status</th>
                         <th>URL</th>
-                        <th>Quality Score</th>
+                        <th>Source</th>
+                        <th>Confidence</th>
                     </tr>
                 </thead>
                 <tbody>
 """
         for profile in social_media:
-            score = profile.get('quality_score', 0)
-            badge_class = 'quality-high' if score >= 70 else ('quality-medium' if score >= 40 else 'quality-low')
+            conf = profile.get('confidence', 0.0)
+            badge_class = 'badge-high' if conf >= 0.8 else ('badge-medium' if conf >= 0.5 else 'badge-low')
             
             html_content += f"""                    <tr>
                         <td><strong>{profile.get('platform', 'N/A')}</strong></td>
-                        <td>{profile.get('status', 'N/A')}</td>
                         <td><a href="{profile.get('url', '#')}" target="_blank">{profile.get('url', 'N/A')}</a></td>
-                        <td><span class="quality-badge {badge_class}">{score}/100</span></td>
-                    </tr>
-"""
-        
-        html_content += """                </tbody>
-            </table>
-        </div>
-"""
-    
-    # Search Results Section
-    search_results = results.get('search_engines', [])
-    if search_results:
-        html_content += """
-        <div class="section">
-            <h2>🔍 Search Engine Results</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Source</th>
-                        <th>Title</th>
-                        <th>URL</th>
-                        <th>Quality Score</th>
-                    </tr>
-                </thead>
-                <tbody>
-"""
-        for result in search_results[:30]:
-            score = result.get('quality_score', 0)
-            badge_class = 'quality-high' if score >= 70 else ('quality-medium' if score >= 40 else 'quality-low')
-            
-            html_content += f"""                    <tr>
-                        <td>{result.get('source', 'N/A')}</td>
-                        <td>{result.get('title', 'N/A')[:80]}</td>
-                        <td><a href="{result.get('url', '#')}" target="_blank">View</a></td>
-                        <td><span class="quality-badge {badge_class}">{score}/100</span></td>
+                        <td><span class="source-tag">{profile.get('source', 'Unknown')}</span></td>
+                        <td><span class="badge {badge_class}">{int(conf*100)}%</span></td>
                     </tr>
 """
         
@@ -254,7 +286,7 @@ def generate_html_report(results: Dict[str, Any], output_file: str):
     # Footer
     html_content += """
         <div class="footer">
-            <p>Generated by OSINT Tool | Advanced Open Source Intelligence Gathering</p>
+            <p>Generated by Hermes OSINT Tool | v1.3</p>
         </div>
     </div>
 </body>

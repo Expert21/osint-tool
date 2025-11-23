@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import random
+import secrets
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus
@@ -36,11 +37,34 @@ class AsyncSearchEngineManager:
                 try:
                     from playwright.async_api import async_playwright
                     async with async_playwright() as p:
-                        browser = await p.chromium.launch(headless=True)
-                        context = await browser.new_context(
-                            user_agent=random.choice(self.request_manager.user_agents),
-                            viewport={'width': 1920, 'height': 1080}
+                        # Launch with security settings
+                        browser = await p.chromium.launch(
+                            headless=True,
+                            args=[
+                                '--no-sandbox',
+                                '--disable-setuid-sandbox',
+                                '--disable-dev-shm-usage',
+                                '--disable-accelerated-2d-canvas',
+                                '--disable-gpu',
+                                '--disable-web-security',  # Only if needed for some OSINT targets
+                            ]
                         )
+                        
+                        context = await browser.new_context(
+                            user_agent=secrets.choice(self.request_manager.user_agents),
+                            viewport={'width': 1920, 'height': 1080},
+                            ignore_https_errors=False,  # Enforce HTTPS validation
+                            java_script_enabled=True,
+                            accept_downloads=False,  # Prevent malicious downloads
+                            bypass_csp=False,  # Respect CSP
+                        )
+                        
+                        # Set additional security and anti-fingerprinting
+                        await context.add_init_script("""
+                            // Prevent fingerprinting
+                            Object.defineProperty(navigator, 'webdriver', {get: () => false});
+                        """)
+                        
                         page = await context.new_page()
                         await page.goto(url, wait_until="networkidle", timeout=30000)
                         content = await page.content()

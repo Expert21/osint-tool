@@ -5,6 +5,7 @@ import hashlib
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from pathlib import Path
+from src.core.rate_limiter import RateLimiter
 
 logger = logging.getLogger("OSINT_Tool")
 
@@ -28,6 +29,9 @@ class CacheManager:
         
         self.db_path = self.cache_dir / "osint_cache.db"
         self.cache_duration = timedelta(hours=cache_duration_hours)
+        
+        # Rate limit: 100 writes per minute to prevent local DoS
+        self.write_limiter = RateLimiter(max_calls=100, time_window=60)
         
         self._init_database()
     
@@ -131,6 +135,10 @@ class CacheManager:
             result: Result data to cache
             extra: Additional key data
         """
+        if not self.write_limiter.is_allowed():
+            logger.warning("Cache write rate limit exceeded")
+            return
+
         cache_key = self._generate_cache_key(target, platform, extra)
         created_at = datetime.now()
         expires_at = created_at + self.cache_duration

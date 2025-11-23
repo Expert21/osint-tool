@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import logging
 import random
+import secrets
 import os
 import ipaddress
 from typing import Optional, Dict, Any, List, Union
@@ -130,7 +131,7 @@ class AsyncRequestManager:
         """Get a random proxy from the list"""
         if not self.proxies:
             return None
-        return f"http://{random.choice(self.proxies)}"
+        return f"http://{secrets.choice(self.proxies)}"
 
     async def get_session(self) -> aiohttp.ClientSession:
         """Get or create the ClientSession."""
@@ -167,7 +168,7 @@ class AsyncRequestManager:
             headers = {}
             
         if "User-Agent" not in headers:
-            headers["User-Agent"] = random.choice(self.user_agents)
+            headers["User-Agent"] = secrets.choice(self.user_agents)
 
         session = await self.get_session()
         

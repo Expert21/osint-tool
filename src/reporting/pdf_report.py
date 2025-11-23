@@ -13,7 +13,7 @@ logger = logging.getLogger("OSINT_Tool")
 
 def generate_pdf_report(results: Dict[str, Any], output_file: str):
     """
-    Generate a professional PDF report.
+    Generate a professional PDF report with tiered results.
     
     Args:
         results: Results dictionary
@@ -62,10 +62,9 @@ def generate_pdf_report(results: Dict[str, Any], output_file: str):
     summary_data = [
         ['Metric', 'Value'],
         ['Total Results', str(stats.get('total_unique', 0))],
-        ['High Quality Results', str(stats.get('high_quality_results', 0))],
-        ['Average Quality Score', f"{stats.get('avg_quality_score', 0):.1f}/100"],
-        ['Duplicates Removed', str(stats.get('duplicates_removed', 0))],
-        ['Connections Found', str(stats.get('connections_found', 0))]
+        ['Confirmed Findings', str(stats.get('confirmed_count', 0))],
+        ['Possible Findings', str(stats.get('possible_count', 0))],
+        ['Average Quality Score', f"{stats.get('avg_quality_score', 0):.1f}/100"]
     ]
     
     summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
@@ -85,70 +84,79 @@ def generate_pdf_report(results: Dict[str, Any], output_file: str):
     
     # Email Enumeration
     if 'emails' in results and results['emails']:
-        emails = results['emails']
-        story.append(Paragraph("Email Enumeration", heading_style))
-        story.append(Paragraph(f"Generated {emails.get('valid_format_count', 0)} potential email addresses", styles['Normal']))
-        story.append(Spacer(1, 0.1*inch))
+        emails_data = results['emails']
+        confirmed = emails_data.get('confirmed_emails', [])
+        possible = emails_data.get('possible_emails', [])
         
-        email_list = emails.get('emails_generated', [])[:20]
-        if email_list:
-            email_text = ", ".join(email_list)
-            story.append(Paragraph(f"<font size=9>{email_text}</font>", styles['Normal']))
-        story.append(Spacer(1, 0.2*inch))
+        story.append(Paragraph("Email Intelligence", heading_style))
+        
+        if confirmed:
+            story.append(Paragraph("Confirmed Emails", styles['Heading3']))
+            email_data = [['Email', 'Source', 'Conf']]
+            for item in confirmed:
+                email_data.append([
+                    item.get('email', 'Unknown'),
+                    item.get('source', 'Unknown'),
+                    f"{int(item.get('confidence', 1.0)*100)}%"
+                ])
+            
+            email_table = Table(email_data, colWidths=[3*inch, 2*inch, 1*inch])
+            email_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#28a745')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(email_table)
+            story.append(Spacer(1, 0.2*inch))
+            
+        if possible:
+            story.append(Paragraph("Possible Emails (Top 20)", styles['Heading3']))
+            email_data = [['Email', 'Source', 'Conf']]
+            for item in possible[:20]:
+                email_data.append([
+                    item.get('email', 'Unknown'),
+                    item.get('source', 'Pattern'),
+                    f"{int(item.get('confidence', 0.5)*100)}%"
+                ])
+            
+            email_table = Table(email_data, colWidths=[3*inch, 2*inch, 1*inch])
+            email_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ffc107')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(email_table)
+            story.append(Spacer(1, 0.2*inch))
     
     # Social Media
     social_media = results.get('social_media', [])
     if social_media:
         story.append(Paragraph("Social Media Profiles", heading_style))
         
-        social_data = [['Platform', 'Status', 'Quality Score']]
-        for profile in social_media[:15]:
+        social_data = [['Platform', 'URL', 'Source', 'Conf']]
+        for profile in social_media[:20]:
             social_data.append([
                 profile.get('platform', 'N/A'),
-                profile.get('status', 'N/A'),
-                f"{profile.get('quality_score', 0)}/100"
+                Paragraph(profile.get('url', 'N/A'), styles['Normal']), # Wrap long URLs
+                profile.get('source', 'Unknown'),
+                f"{int(profile.get('confidence', 0.0)*100)}%"
             ])
         
-        social_table = Table(social_data, colWidths=[2*inch, 2*inch, 1.5*inch])
+        social_table = Table(social_data, colWidths=[1.5*inch, 2.5*inch, 1.5*inch, 0.8*inch])
         social_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP')
         ]))
         
         story.append(social_table)
-        story.append(Spacer(1, 0.2*inch))
-    
-    # Search Results
-    search_results = results.get('search_engines', [])
-    if search_results:
-        story.append(Paragraph("Search Engine Results", heading_style))
-        
-        search_data = [['Source', 'Title', 'Score']]
-        for result in search_results[:15]:
-            title = result.get('title', 'N/A')[:40]
-            search_data.append([
-                result.get('source', 'N/A'),
-                title,
-                f"{result.get('quality_score', 0)}/100"
-            ])
-        
-        search_table = Table(search_data, colWidths=[1.5*inch, 3*inch, 1*inch])
-        search_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        
-        story.append(search_table)
     
     # Build PDF
     doc.build(story)

@@ -31,7 +31,7 @@ class SecretsManager:
         
         self.key_file = self.secrets_dir / ".key"
         self.creds_file = self.secrets_dir / "credentials.enc"
-        self.key_file = key_file
+
         self.hmac_salt = self._get_or_create_hmac_salt()
         self._cipher = None
     

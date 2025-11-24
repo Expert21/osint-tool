@@ -8,6 +8,7 @@ from src.core.async_request_manager import AsyncRequestManager
 from src.modules.search_engines import AsyncSearchEngineManager
 from src.core.scan_logger import ScanLogger, EventType
 from src.core.rate_limiter import RateLimiter
+from src.core.utils import SafeSoup, Sanitizer
 
 logger = logging.getLogger("OSINT_Tool")
 
@@ -27,10 +28,8 @@ class PassiveIntelligenceModule:
         self.pgp_limiter = RateLimiter(max_calls=20, time_window=60)   # 20/min
 
     def _redact(self, value: str) -> str:
-        """Redact sensitive values for logging."""
-        if not value or len(value) < 4:
-            return "****"
-        return f"{value[:4]}****{value[-2:]}"
+        """Deprecated: Use Sanitizer.sanitize_key instead."""
+        return Sanitizer.sanitize_key(value)
 
     async def check_breach_data(self, email: str) -> List[Dict[str, Any]]:
         
@@ -48,11 +47,11 @@ class PassiveIntelligenceModule:
         url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{urllib.parse.quote(email)}?truncateResponse=false"
         
         # Redact API key for logging
-        redacted_key = self._redact(self.hibp_api_key)
+        redacted_key = Sanitizer.sanitize_key(self.hibp_api_key)
         logger.debug(f"Using HIBP API Key: {redacted_key}")
         
         headers = {
-            "hibp-api-key": redacted_key,
+            "hibp-api-key": self.hibp_api_key, # Send real key
             "user-agent": "Hermes-OSINT-Tool"
         }
         
@@ -66,7 +65,7 @@ class PassiveIntelligenceModule:
                         self.scan_logger.log_event(
                             EventType.SUCCESS,
                             "passive_intelligence",
-                            f"HIBP check successful for {email}",
+                            f"HIBP check successful for {Sanitizer.sanitize_email(email)}",
                             {"breach_count": len(breaches)}
                         )
                     return breaches
@@ -76,7 +75,7 @@ class PassiveIntelligenceModule:
                             EventType.API_ERROR,
                             "passive_intelligence",
                             "Failed to parse HIBP response",
-                            {"email": email},
+                            {"email": Sanitizer.sanitize_email(email)},
                             e
                         )
                     logger.error("Failed to parse HIBP response")
@@ -89,7 +88,7 @@ class PassiveIntelligenceModule:
                         EventType.RATE_LIMIT,
                         "passive_intelligence",
                         "HIBP Rate Limit Exceeded",
-                        {"email": email}
+                        {"email": Sanitizer.sanitize_email(email)}
                     )
                 logger.warning("HIBP Rate Limit Exceeded")
                 return []
@@ -99,7 +98,7 @@ class PassiveIntelligenceModule:
                         EventType.API_ERROR,
                         "passive_intelligence",
                         f"HIBP API Error: {response['status']}",
-                        {"email": email, "status_code": response['status']}
+                        {"email": Sanitizer.sanitize_email(email), "status_code": response['status']}
                     )
                 logger.error(f"HIBP API Error: {response['status']}")
                 return []
@@ -109,7 +108,7 @@ class PassiveIntelligenceModule:
                     EventType.FAILURE,
                     "passive_intelligence",
                     "Error checking breach data",
-                    {"email": email},
+                    {"email": Sanitizer.sanitize_email(email)},
                     e
                 )
             logger.error(f"Error checking breach data: {e}")
@@ -173,7 +172,7 @@ class PassiveIntelligenceModule:
                         EventType.FAILURE,
                         "passive_intelligence",
                         "PGP Keyserver query failed",
-                        {"email": email, "url": url},
+                        {"email": Sanitizer.sanitize_email(email), "url": Sanitizer.sanitize_url(url)},
                         e
                     )
                 logger.error(f"PGP Keyserver error: {e}")
@@ -235,15 +234,19 @@ class PassiveIntelligenceModule:
             tasks.append(asyncio.sleep(0)) # Placeholder
             tasks.append(asyncio.sleep(0)) # Placeholder
             
-        # Always dork for profiles using the target name/username
-        tasks.append(self.dork_profiles(target))
+        # Always dork
+        if "@" in target:
+            username = target.split("@")[0]
+        else:
+            username = target
+            
+        tasks.append(self.dork_profiles(username))
         
         results = await asyncio.gather(*tasks)
         
-        if "@" in target:
-            passive_data["breaches"] = results[0]
-            passive_data["pgp_keys"] = results[1]
-        
-        passive_data["dork_profiles"] = results[2]
+        if len(results) >= 3:
+            passive_data["breaches"] = results[0] if results[0] else []
+            passive_data["pgp_keys"] = results[1] if results[1] else []
+            passive_data["dork_profiles"] = results[2]
         
         return passive_data

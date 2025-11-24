@@ -10,6 +10,7 @@ import hashlib
 from typing import Optional, Dict, Any, List, Union
 from src.core.url_validator import URLValidator
 from src.core.resource_limiter import ResourceLimiter
+from src.core.utils import Sanitizer
 
 logger = logging.getLogger("OSINT_Tool")
 
@@ -179,7 +180,7 @@ class AsyncRequestManager:
         """
         # SECURITY: Validate URL to prevent SSRF attacks
         if not URLValidator.is_safe_url(url):
-            logger.error(f"Blocked unsafe URL: {url}")
+            logger.error(f"Blocked unsafe URL: {Sanitizer.sanitize_url(url)}")
             return {"status": 0, "text": "", "error": "Unsafe URL blocked", "ok": False}
         
         if headers is None:
@@ -211,7 +212,7 @@ class AsyncRequestManager:
                         # SECURITY: Re-validate URL immediately before request to prevent DNS rebinding
                         # This closes the TOCTOU window between initial validation and actual request
                         if not URLValidator.is_safe_url(current_url):
-                            logger.error(f"Blocked unsafe URL (DNS rebinding protection): {current_url}")
+                            logger.error(f"Blocked unsafe URL (DNS rebinding protection): {Sanitizer.sanitize_url(current_url)}")
                             return {"status": 0, "text": "", "error": "Unsafe URL blocked (DNS rebinding protection)", "ok": False}
 
                         async with session.request(
@@ -232,7 +233,7 @@ class AsyncRequestManager:
                                     break # Treat as final response
                                 else:
                                     current_url = urllib.parse.urljoin(current_url, location)
-                                    logger.debug(f"Following redirect to {current_url}")
+                                    logger.debug(f"Following redirect to {Sanitizer.sanitize_url(current_url)}")
                                     continue
                             
                             # SECURITY: Check content length before downloading
@@ -241,13 +242,13 @@ class AsyncRequestManager:
                             
                             if response.status == 429:
                                 retry_after = int(response.headers.get("Retry-After", 5))
-                                logger.warning(f"Rate limited by {current_url}. Waiting {retry_after}s...")
+                                logger.warning(f"Rate limited by {Sanitizer.sanitize_url(current_url)}. Waiting {retry_after}s...")
                                 await asyncio.sleep(retry_after)
                                 break # Break inner loop to retry outer loop
                             
                             # 403 Forbidden might indicate a bad proxy or bot detection
                             if response.status == 403 and proxy:
-                                logger.debug(f"Proxy {proxy} blocked by {current_url}")
+                                logger.debug(f"Proxy {proxy} blocked by {Sanitizer.sanitize_url(current_url)}")
                                 break # Break inner loop to retry outer loop
                             
                             # HTTP 202 Accepted - retry once with delay
@@ -283,7 +284,7 @@ class AsyncRequestManager:
                     logger.debug(f"Request failed ({attempt+1}/{retries}) with proxy {proxy}: {e}")
                     
                     if attempt == retries - 1:
-                        logger.error(f"Max retries reached for {url}")
+                        logger.error(f"Max retries reached for {Sanitizer.sanitize_url(url)}")
                         return {"status": 0, "text": "", "error": str(e), "ok": False}
                     
                     await asyncio.sleep(delay * (2 ** attempt))

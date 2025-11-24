@@ -1,8 +1,8 @@
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from bs4 import BeautifulSoup
-from .async_request_manager import AsyncRequestManager
-from .safe_soup import SafeSoup
+from src.core.async_request_manager import AsyncRequestManager
+from src.core.utils import SafeSoup
 from difflib import SequenceMatcher
 import re
 import asyncio

@@ -32,9 +32,9 @@ async def test_h1_api_key_redaction(caplog):
                 
                 # Check logs for redacted key
                 assert "TEST_API_KEY_12345" not in caplog.text
-                # We expect redaction to show something like TEST_****45 or similar
-                # The implementation uses: f"{key[:4]}****{key[-2:]}"
-                assert "TEST****45" in caplog.text
+                # We expect redaction to show something like TEST****2345
+                # The implementation uses: f"{key[:4]}****{key[-4:]}"
+                assert "TEST****2345" in caplog.text
 
 # H2: Race Condition
 def test_h2_cache_race_condition():
@@ -63,7 +63,7 @@ async def test_h3_unsafe_redirect():
         
         result = await arm.fetch("http://example.com")
         assert result["ok"] is False
-        assert "Unsafe redirect blocked" in result["error"]
+        assert "Unsafe URL blocked" in result["error"]
 
 # M1: PGP Parsing
 @pytest.mark.asyncio

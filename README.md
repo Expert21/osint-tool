@@ -4,7 +4,7 @@
 
 Hermes is a powerful, command-line OSINT (Open Source Intelligence) tool designed for comprehensive digital footprint analysis. Named after the Greek messenger god, Hermes swiftly gathers intelligence across multiple platforms and presents it in professional, actionable reports.
 
-![Version](https://img.shields.io/badge/version-1.3.1-blue)
+![Version](https://img.shields.io/badge/version-1.3.2-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -149,7 +149,25 @@ hermes --clear-cache
 
 ## 📝 Release Notes
 
-### v1.3.1 - Security Hardening (Current Release)
+### v1.3.2 - Proactive Logging Sanitization (Current Release)
+
+**🔒 Enhanced Privacy & Security:**
+- **Sanitizer Class:** Centralized proactive sanitization utility for all logging operations
+- **URL Query Masking:** All query parameters sanitized in logs (e.g., `?api_key=***`, `?q=***`)
+- **Response Truncation:** Long response bodies automatically truncated to 500 chars in logs
+- **Email Masking:** Email addresses redacted in logs (e.g., `jo***@example.com`)
+- **API Key Redaction:** Enhanced key masking showing only first/last 4 characters
+- **Sanitization Coverage:** Updated `AsyncRequestManager`, `search_engines`, and `passive_intelligence` modules
+- **Import Fixes:** Corrected relative imports in `profile_verification.py` for better compatibility
+- **Test Coverage:** All security implementations verified with comprehensive test suite
+
+**Key Benefits:**
+- 🛡️ Prevents PII leakage in log files
+- 🔍 Maintains log readability while protecting sensitive data
+- 📊 Consistent sanitization rules across entire codebase
+- ✅ Proactive security at call-site vs reactive filtering
+
+### v1.3.1 - Security Hardening
 
 **🔒 Enhanced Security Fixes:**
 - **API Key Redaction:** Sensitive credentials masked in all log output (4+2 character format)

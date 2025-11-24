@@ -3,7 +3,7 @@ import logging
 import random
 import secrets
 from typing import List, Dict, Optional
-from src.core.utils import SafeSoup
+from src.core.utils import SafeSoup, Sanitizer
 from urllib.parse import quote_plus
 from src.core.async_request_manager import AsyncRequestManager
 
@@ -314,7 +314,7 @@ class AsyncSearchEngineManager:
             self.search_yandex(query, num_results, use_js)
         ]
         
-        logger.info(f"Launching async search for: {query}")
+        logger.info(f"Launching async search for: {Sanitizer.truncate(query)}")
         results_list = await asyncio.gather(*tasks)
         
         # Flatten results
@@ -333,7 +333,7 @@ async def run_search_engines_async(target: str, config: Dict, js_render: bool = 
     all_results = []
     
     # Basic search
-    logger.info(f"Running basic search for: {target}")
+    logger.info(f"Running basic search for: {Sanitizer.truncate(target)}")
     basic_results = await search_manager.search_all(target, num_results=10, use_js=js_render)
     all_results.extend(basic_results)
     

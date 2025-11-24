@@ -25,6 +25,14 @@ class AsyncSearchEngineManager:
         except ImportError:
             return False
 
+    def _validate_query(self, query: str) -> str:
+        """Validate and truncate query length to prevent DoS."""
+        MAX_QUERY_LENGTH = 500
+        if len(query) > MAX_QUERY_LENGTH:
+            logger.warning(f"Query truncated from {len(query)} to {MAX_QUERY_LENGTH} chars")
+            return query[:MAX_QUERY_LENGTH]
+        return query
+
     async def _fetch_content(self, url: str, use_js: bool = False) -> Optional[str]:
         """Fetch content using AsyncRequestManager or Playwright"""
         if use_js:
@@ -34,6 +42,7 @@ class AsyncSearchEngineManager:
                     self._playwright_warning_shown = True
                 use_js = False
             else:
+                browser = None
                 try:
                     from playwright.async_api import async_playwright
                     async with async_playwright() as p:
@@ -72,11 +81,13 @@ class AsyncSearchEngineManager:
                         page = await context.new_page()
                         await page.goto(url, wait_until="networkidle", timeout=30000)
                         content = await page.content()
-                        await browser.close()
                         return content
                 except Exception as e:
                     logger.error(f"Playwright error: {e}")
                     use_js = False
+                finally:
+                    if browser:
+                        await browser.close()  # ALWAYS cleanup
         
         # Standard async request
         response = await self.request_manager.fetch(url)
@@ -86,6 +97,7 @@ class AsyncSearchEngineManager:
 
     async def search_duckduckgo(self, query: str, num_results: int = 10, use_js: bool = False) -> List[Dict[str, str]]:
         results = []
+        query = self._validate_query(query)
         encoded_query = quote_plus(query)
         url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
         
@@ -119,6 +131,7 @@ class AsyncSearchEngineManager:
 
     async def search_bing(self, query: str, num_results: int = 10, use_js: bool = False) -> List[Dict[str, str]]:
         results = []
+        query = self._validate_query(query)
         encoded_query = quote_plus(query)
         url = f"https://www.bing.com/search?q={encoded_query}&count={num_results}"
         
@@ -153,6 +166,7 @@ class AsyncSearchEngineManager:
 
     async def search_yahoo(self, query: str, num_results: int = 10, use_js: bool = False) -> List[Dict[str, str]]:
         results = []
+        query = self._validate_query(query)
         encoded_query = quote_plus(query)
         url = f"https://search.yahoo.com/search?p={encoded_query}&n={num_results}"
         
@@ -187,6 +201,7 @@ class AsyncSearchEngineManager:
 
     async def search_brave(self, query: str, num_results: int = 10, use_js: bool = False) -> List[Dict[str, str]]:
         results = []
+        query = self._validate_query(query)
         encoded_query = quote_plus(query)
         url = f"https://search.brave.com/search?q={encoded_query}"
         
@@ -221,6 +236,7 @@ class AsyncSearchEngineManager:
 
     async def search_startpage(self, query: str, num_results: int = 10, use_js: bool = False) -> List[Dict[str, str]]:
         results = []
+        query = self._validate_query(query)
         encoded_query = quote_plus(query)
         url = f"https://www.startpage.com/do/search?query={encoded_query}"
         
@@ -254,6 +270,7 @@ class AsyncSearchEngineManager:
 
     async def search_yandex(self, query: str, num_results: int = 10, use_js: bool = False) -> List[Dict[str, str]]:
         results = []
+        query = self._validate_query(query)
         encoded_query = quote_plus(query)
         url = f"https://yandex.com/search/?text={encoded_query}"
         

@@ -1,3 +1,15 @@
+import logging
+from typing import Dict, Optional
+from bs4 import BeautifulSoup
+from .async_request_manager import AsyncRequestManager
+from .safe_soup import SafeSoup
+from difflib import SequenceMatcher
+import re
+import asyncio
+
+
+logger = logging.getLogger(__name__)
+
 class AsyncProfileVerifier:
     """
     Async verification system to confirm social media profiles.

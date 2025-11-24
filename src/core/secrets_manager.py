@@ -31,7 +31,8 @@ class SecretsManager:
         
         self.key_file = self.secrets_dir / ".key"
         self.creds_file = self.secrets_dir / "credentials.enc"
-        
+        self.key_file = key_file
+        self.hmac_salt = self._get_or_create_hmac_salt()
         self._cipher = None
     
     def _get_cipher(self):
@@ -57,13 +58,47 @@ class SecretsManager:
         self._cipher = Fernet(key)
         return self._cipher
     
+    # def _get_hmac_key(self):
+    #     """Derive HMAC key from encryption key."""
+    #     if not self.key_file.exists():
+    #         return None
+    #     with open(self.key_file, 'rb') as f:
+    #         key = f.read()
+    #     return hashlib.sha256(key).digest()
+    def _get_or_create_hmac_salt(self) -> bytes:
+        """Get existing HMAC salt or create new one."""
+        import os
+
+        salt_file = self.key_file.parent / '.hmac_salt'
+
+        if salt_file.exists():
+            with open(salt_file, 'rb') as f:
+                return f.read()
+        else:
+            salt = os.urandom(32)
+            with open(salt_file, 'wb') as f:
+                f.write(salt)
+            return salt
+
     def _get_hmac_key(self):
-        """Derive HMAC key from encryption key."""
+        """Derive HMAC key from encryption key using HKDF."""
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
         if not self.key_file.exists():
             return None
+
         with open(self.key_file, 'rb') as f:
-            key = f.read()
-        return hashlib.sha256(key).digest()
+            master_key = f.read()
+
+        # Derive separate keys for encryption and HMAC
+        hkdf = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=self.hmac_salt,
+            info=b'hmac-key'
+        )
+        return hkdf.derive(master_key)
 
     def _read_all_encrypted(self) -> Dict[str, str]:
         """Read all encrypted credentials with HMAC verification."""
@@ -82,18 +117,28 @@ class SecretsManager:
                 return {}
 
             # Try HMAC verification first
+            hmac_verification_attempted = False
+            hmac_verification_failed = False
+            
             if len(file_content) >= 32:
                 stored_hmac = file_content[:32]
                 encrypted_data = file_content[32:]
                 
                 hmac_key = self._get_hmac_key()
                 if hmac_key:
+                    hmac_verification_attempted = True
                     calculated_hmac = hmac.new(hmac_key, encrypted_data, hashlib.sha256).digest()
                     if hmac.compare_digest(stored_hmac, calculated_hmac):
-                        decrypted = cipher.decrypt(encrypted_data)
-                        data = json.loads(decrypted.decode())
-                        if isinstance(data, dict):
-                            return data
+                        try:
+                            decrypted = cipher.decrypt(encrypted_data)
+                            data = json.loads(decrypted.decode())
+                            if isinstance(data, dict):
+                                return data
+                        except Exception as decrypt_error:
+                            logger.error(f"HMAC verification passed but decryption failed: {decrypt_error}")
+                            hmac_verification_failed = True
+                    else:
+                        hmac_verification_failed = True
             
             # Fallback to legacy format (no HMAC)
             try:
@@ -102,7 +147,29 @@ class SecretsManager:
                 if isinstance(data, dict):
                     logger.warning("Legacy credentials file format detected. Will migrate on next save.")
                     return data
-            except Exception:
+            except Exception as legacy_error:
+                # If HMAC verification was attempted but failed, provide detailed guidance
+                if hmac_verification_failed:
+                    logger.error("=" * 70)
+                    logger.error("CRITICAL: Unable to decrypt credentials file!")
+                    logger.error("=" * 70)
+                    logger.error("HMAC verification failed. This may indicate:")
+                    logger.error("  1. The encryption key has been modified or corrupted")
+                    logger.error("  2. The credentials file has been tampered with")
+                    logger.error("  3. A critical security file (.hmac_salt) was deleted")
+                    logger.error("")
+                    logger.error("Recovery options:")
+                    logger.error("  • If you have a backup of your secrets directory, restore it:")
+                    logger.error(f"    Backup location: {self.secrets_dir}")
+                    logger.error("  • If this is a fresh setup, delete the corrupted files:")
+                    logger.error(f"    rm {self.key_file}")
+                    logger.error(f"    rm {self.creds_file}")
+                    logger.error("    Then re-add your credentials using --store-credential")
+                    logger.error("  • Check if .hmac_salt file exists in secrets directory")
+                    logger.error("=" * 70)
+                elif hmac_verification_attempted:
+                    logger.error(f"Failed to decrypt credentials (legacy fallback also failed): {legacy_error}")
+                # If no HMAC was attempted, just log the error normally
                 pass
                 
             logger.error("Credentials file integrity check failed or invalid format.")

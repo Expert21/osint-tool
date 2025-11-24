@@ -1,11 +1,13 @@
 import asyncio
 import logging
+import json
 import os
 import urllib.parse
 from typing import List, Dict, Any, Optional
 from src.core.async_request_manager import AsyncRequestManager
 from src.modules.search_engines import AsyncSearchEngineManager
 from src.core.scan_logger import ScanLogger, EventType
+from src.core.rate_limiter import RateLimiter
 
 logger = logging.getLogger("OSINT_Tool")
 
@@ -20,6 +22,9 @@ class PassiveIntelligenceModule:
         self.search_manager = AsyncSearchEngineManager()
         self.hibp_api_key = os.getenv("HIBP_API_KEY")
         self.scan_logger = scan_logger
+        # Add rate limiters
+        self.hibp_limiter = RateLimiter(max_calls=10, time_window=60)  # 10/min
+        self.pgp_limiter = RateLimiter(max_calls=20, time_window=60)   # 20/min
 
     def _redact(self, value: str) -> str:
         """Redact sensitive values for logging."""
@@ -28,6 +33,10 @@ class PassiveIntelligenceModule:
         return f"{value[:4]}****{value[-2:]}"
 
     async def check_breach_data(self, email: str) -> List[Dict[str, Any]]:
+        
+        if not self.hibp_limiter.is_allowed():
+            logger.warning("HIBP rate limit exceeded, skipping")
+            return []
         """
         Check Have I Been Pwned API for breaches.
         Requires HIBP_API_KEY environment variable.
@@ -111,6 +120,10 @@ class PassiveIntelligenceModule:
         Query public PGP keyservers for email addresses.
         This is a great passive source as it confirms email existence and usage.
         """
+        if not self.pgp_limiter.is_allowed():
+            logger.warning("PGP keyserver rate limit exceeded, skipping")
+            return []
+
         keyservers = [
             f"https://keyserver.ubuntu.com/pks/lookup?search={urllib.parse.quote(email)}&op=index&options=mr",
             # Add more if needed, but Ubuntu's is quite comprehensive
@@ -136,24 +149,24 @@ class PassiveIntelligenceModule:
                         if line.startswith("pub:"):
                             processed_count += 1
                             parts = line.split(':')
-                            if len(parts) > 1:
-                                # SECURITY: Sanitize and limit length of extracted fields
-                                key_id = parts[1] if len(parts) > 1 else "Unknown"
-                                timestamp = parts[4] if len(parts) > 4 else "Unknown"
-                                
-                                # Truncate to safe length
-                                key_id = key_id[:50]
-                                timestamp = timestamp[:50]
-                                
-                                # Sanitize raw data line
-                                safe_line = line[:200]
-                                
-                                results.append({
-                                    "source": "PGP Keyserver",
-                                    "key_id": key_id,
-                                    "timestamp": timestamp,
-                                    "data": safe_line
-                                })
+                            
+                            # Validate BEFORE accessing
+                            if not parts or len(parts) < 5:
+                                continue # Skip malformed lines
+
+                            # SECURITY: Sanitize and limit length of extracted fields
+                            key_id = parts[1][:50] # Safe access then truncate
+                            timestamp = parts[4][:50]
+                            
+                            # Sanitize raw data line
+                            safe_line = line[:200]
+                            
+                            results.append({
+                                "source": "PGP Keyserver",
+                                "key_id": key_id,
+                                "timestamp": timestamp,
+                                "data": safe_line
+                            })
             except Exception as e:
                 if self.scan_logger:
                     self.scan_logger.log_event(

@@ -208,10 +208,11 @@ class AsyncRequestManager:
                     max_redirects = 5
                     
                     while redirect_count < max_redirects:
-                        # Validate current URL before fetching
+                        # SECURITY: Re-validate URL immediately before request to prevent DNS rebinding
+                        # This closes the TOCTOU window between initial validation and actual request
                         if not URLValidator.is_safe_url(current_url):
-                            logger.error(f"Blocked unsafe redirect URL: {current_url}")
-                            return {"status": 0, "text": "", "error": "Unsafe redirect blocked", "ok": False}
+                            logger.error(f"Blocked unsafe URL (DNS rebinding protection): {current_url}")
+                            return {"status": 0, "text": "", "error": "Unsafe URL blocked (DNS rebinding protection)", "ok": False}
 
                         async with session.request(
                             method, 
@@ -228,7 +229,7 @@ class AsyncRequestManager:
                                 redirect_count += 1
                                 location = response.headers.get('Location')
                                 if not location:
-                                    pass # Treat as final response
+                                    break # Treat as final response
                                 else:
                                     current_url = urllib.parse.urljoin(current_url, location)
                                     logger.debug(f"Following redirect to {current_url}")

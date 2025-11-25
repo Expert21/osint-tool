@@ -23,6 +23,7 @@ env/
 .osint_profiles/
 report.json
 proxies.txt
+tests/outputs/
 
 # Python Build/Distribution
 *.egg-info/

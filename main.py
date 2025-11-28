@@ -83,7 +83,7 @@ async def main_async():
 
     # Phase 1: Docker Orchestration
     parser.add_argument("--mode", choices=["native", "docker"], default="native", help="Execution mode")
-    parser.add_argument("--tool", choices=["sherlock", "theharvester"], help="Specific tool to run in Docker mode")
+    parser.add_argument("--tool", choices=["sherlock", "theharvester", "holehe", "phoneinfoga", "sublist3r", "photon", "exiftool"], help="Specific tool to run in Docker mode")
     
     # Environment Management
     parser.add_argument("--import-env", action="store_true", help="Import .env file values into secure encrypted storage")
@@ -160,6 +160,11 @@ async def main_async():
             from src.orchestration.docker_manager import DockerManager
             from src.orchestration.adapters.sherlock_adapter import SherlockAdapter
             from src.orchestration.adapters.theharvester_adapter import TheHarvesterAdapter
+            from src.orchestration.adapters.holehe_adapter import HoleheAdapter
+            from src.orchestration.adapters.phoneinfoga_adapter import PhoneInfogaAdapter
+            from src.orchestration.adapters.sublist3r_adapter import Sublist3rAdapter
+            from src.orchestration.adapters.photon_adapter import PhotonAdapter
+            from src.orchestration.adapters.exiftool_adapter import ExiftoolAdapter
             
             docker_manager = DockerManager()
         except ImportError:
@@ -177,6 +182,21 @@ async def main_async():
                 results = adapter.execute(args.target, {})
             elif args.tool == "theharvester":
                 adapter = TheHarvesterAdapter(docker_manager)
+                results = adapter.execute(args.target, {})
+            elif args.tool == "holehe":
+                adapter = HoleheAdapter(docker_manager)
+                results = adapter.execute(args.target, {})
+            elif args.tool == "phoneinfoga":
+                adapter = PhoneInfogaAdapter(docker_manager)
+                results = adapter.execute(args.target, {})
+            elif args.tool == "sublist3r":
+                adapter = Sublist3rAdapter(docker_manager)
+                results = adapter.execute(args.target, {})
+            elif args.tool == "photon":
+                adapter = PhotonAdapter(docker_manager)
+                results = adapter.execute(args.target, {})
+            elif args.tool == "exiftool":
+                adapter = ExiftoolAdapter(docker_manager)
                 results = adapter.execute(args.target, {})
                 
             logger.info(f"Execution complete. Results: {results}")

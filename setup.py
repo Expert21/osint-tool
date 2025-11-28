@@ -8,7 +8,7 @@ with open(readme_path, "r", encoding="utf-8") as fh:
 
 setup(
     name="hermes-osint",
-    version="1.4.1",
+    version="1.6.0",
     author="Expert21",
     author_email="isaiahmyles04@gmail.com",
     description="Advanced OSINT Intelligence Gathering Tool",
@@ -49,6 +49,9 @@ setup(
         "aiohttp",
         "cryptography",
         "playwright",
+        "psutil",
+        "docker",
+        "textual",
     ],
     
     # Create the 'hermes' command using the CLI wrapper

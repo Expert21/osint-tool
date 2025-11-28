@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### In Development - v2.0 
+- Full v2.0 release targeting Q1 2026
+
+## [1.6.0] - 2025-11-28
+
+### Added 
+- Parallel Execution System: Tiered async execution framework for concurrent tool operations
+- Resource Auto-Detection: Automatic detection of system resources (CPU cores, memory) for optimal worker allocation
+- Configurable Concurrency: `--workers` flag to manually set parallel worker count
+- Cross-Tool Correlation: Intelligent result aggregation across multiple OSINT tools with relationship mapping
+- Duplicate Detection: Advanced deduplication engine with smart matching algorithms
+- Enhanced Confidence Scoring: Multi-source confidence calculation with weighted attribution
+- 5 New Tool Adapters:
+  - Holehe - Email account enumeration across 120+ platforms
+  - PhoneInfoga - Advanced phone number OSINT and footprinting
+  - Sublist3r - Fast subdomain enumeration via search engines
+  - Photon - Intelligent web crawler for OSINT
+  - Exiftool - Metadata extraction from images and documents
+- Source Attribution: Track and display which tools discovered each piece of intelligence
+- Enhanced Reporting: All report formats now include source metadata and confidence metrics
+
+### Changed
+- Report templates updated with source attribution tables and confidence visualizations
+- Statistics engine now calculates cross-tool correlation metrics
+- Caching system optimized for parallel execution scenarios
+- Configuration schema extended to support performance tuning options
+
+### Fixed
+- Race conditions in cache access during parallel operations
+- Memory leaks in long-running parallel scans
+- Tool adapter timeout handling in high-concurrency scenarios
+
 ## [1.5.0] - 2025-11-27
 
 ### Added
@@ -15,11 +47,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proxy management system with rotation and validation
 - Tool adapter interface for external OSINT tools
 - Sherlock and TheHarvester adapters
+- h8mail integration for email breach hunting
+- Sequential workflow execution via WorkflowManager
 - Security-hardened container execution with resource limits
 
 ### Changed
 - Major codebase refactoring and formatting improvements
 - Enhanced test coverage across modules
+- Core stability improvements in logging, caching, rate limiting
+
+### Security
+- Enhanced Docker container isolation
+- Whitelist management for tool execution
 
 ## [1.4.1] - 2025-11-25
 
@@ -134,7 +173,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/Expert21/hermes-osint/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/Expert21/hermes-osint/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/Expert21/hermes-osint/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/Expert21/hermes-osint/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/Expert21/hermes-osint/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/Expert21/hermes-osint/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/Expert21/hermes-osint/compare/v1.3.0...v1.3.1

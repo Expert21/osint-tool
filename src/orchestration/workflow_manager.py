@@ -4,6 +4,11 @@ from src.orchestration.docker_manager import DockerManager
 from src.orchestration.adapters.sherlock_adapter import SherlockAdapter
 from src.orchestration.adapters.theharvester_adapter import TheHarvesterAdapter
 from src.orchestration.adapters.h8mail_adapter import H8MailAdapter
+from src.orchestration.adapters.holehe_adapter import HoleheAdapter
+from src.orchestration.adapters.phoneinfoga_adapter import PhoneInfogaAdapter
+from src.orchestration.adapters.sublist3r_adapter import Sublist3rAdapter
+from src.orchestration.adapters.photon_adapter import PhotonAdapter
+from src.orchestration.adapters.exiftool_adapter import ExiftoolAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +29,12 @@ class WorkflowManager:
         self.adapters = {
             "sherlock": SherlockAdapter(self.docker_manager),
             "theharvester": TheHarvesterAdapter(self.docker_manager),
-            "h8mail": H8MailAdapter(self.docker_manager)
+            "h8mail": H8MailAdapter(self.docker_manager),
+            "holehe": HoleheAdapter(self.docker_manager),
+            "phoneinfoga": PhoneInfogaAdapter(self.docker_manager),
+            "sublist3r": Sublist3rAdapter(self.docker_manager),
+            "photon": PhotonAdapter(self.docker_manager),
+            "exiftool": ExiftoolAdapter(self.docker_manager)
         }
 
     def execute_workflow(self, workflow_name: str, target: str) -> Dict[str, Any]:

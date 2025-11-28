@@ -4,7 +4,7 @@
 
 Hermes is a powerful, command-line OSINT (Open Source Intelligence) tool designed for comprehensive digital footprint analysis. Named after the Greek messenger god, Hermes swiftly gathers intelligence across multiple platforms and presents it in professional, actionable reports.
 
-![Version](https://img.shields.io/badge/version-1.5-blue)
+![Version](https://img.shields.io/badge/version-1.6-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-orange)
 
@@ -158,20 +158,18 @@ hermes --clear-cache
 
 ## 📝 Current Release
 
-### v1.5 - Foundation & Orchestration
+### v1.6 - Intelligence & Performance 
 
-**Latest stable release** focusing on core stability and tool orchestration.
+- Parallel Execution: Tiered async system with 5-7x performance improvement over sequential execution
+- Resource Management: Auto-detection of system resources with configurable concurrency (--workers)
+- Cross-Tool Correlation: Intelligent result aggregation across multiple OSINT tools
+- Duplicate Detection: Automatic deduplication with smart matching algorithms
+- Confidence Scoring: Enhanced scoring system with source attribution
+- Extended Tool Support: 5 new adapters (Holehe, PhoneInfoga, Sublist3r, Photon, Exiftool)
+- Enhanced Reporting: Source attribution and confidence metrics in all report formats
 
-**Key Features:**
-- **h8mail Integration**: New Docker adapter for email breach hunting and password analysis.
-- **Sequential Execution**: `WorkflowManager` enables chaining tools (e.g., `theHarvester` -> `h8mail`).
-- **Core Stability**: Resolved merge conflicts in logging, caching, rate limiting, and secrets management.
-- **Docker Security**: Enhanced container isolation and whitelist management.
-- **TUI Improvements**: Fixed style conflicts for a consistent user interface.
 
-**For complete version history and detailed changelogs, see [CHANGELOG.md](CHANGELOG.md)**
-
----
+For complete version history and detailed changelogs, see CHANGELOG.md
 
 ## 🔧 Configuration
 

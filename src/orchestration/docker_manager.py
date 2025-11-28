@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 # Update these digests periodically after verifying image integrity
 TRUSTED_IMAGES = {
     "sherlock/sherlock": "sherlock/sherlock:latest",  # TODO: Replace with @sha256:digest
-    "secsi/theharvester": "secsi/theharvester:latest"  # TODO: Replace with @sha256:digest
+    "secsi/theharvester": "secsi/theharvester:latest",  # TODO: Replace with @sha256:digest
+    "khast3x/h8mail": "khast3x/h8mail:latest"
 }
 
 # SECURITY: Whitelist for environment variables

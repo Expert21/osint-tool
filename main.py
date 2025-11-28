@@ -10,6 +10,8 @@ from src.core.deduplication import deduplicate_and_correlate
 from src.core.async_request_manager import AsyncRequestManager
 from src.core.proxy_manager import ProxyManager
 from src.core.secrets_manager import SecretsManager
+from src.core.task_manager import TaskManager, TaskPriority
+from src.core.resource_limiter import ResourceLimiter
 
 # Async Module Imports
 from src.modules.search_engines import run_search_engines_async
@@ -60,6 +62,7 @@ async def main_async():
     parser.add_argument("--no-progress", action="store_true", help="Disable progress indicators")
     parser.add_argument("--no-dedup", action="store_true", help="Disable deduplication")
     parser.add_argument("--js-render", action="store_true", help="Enable JavaScript rendering (requires Playwright)")
+    parser.add_argument("--workers", type=int, default=10, help="Number of concurrent workers (default: 10)")
     
     # Priority 2: Username Variations
     parser.add_argument("--username-variations", action="store_true", help="Try username variations on social media")
@@ -212,6 +215,13 @@ async def main_async():
     # Initialize Async Request Manager with Proxy Manager
     request_manager = AsyncRequestManager(proxy_manager=proxy_manager)
     
+    # Auto-detect resources
+    ResourceLimiter.auto_detect_resources()
+    
+    # Initialize TaskManager
+    task_manager = TaskManager(max_workers=args.workers)
+    await task_manager.start()
+    
     try:
         tasks = []
         
@@ -230,20 +240,20 @@ async def main_async():
         # 2. Email Enumeration (Async)
         if args.email_enum and config_dict.get('features', {}).get('email_enumeration', True):
             logger.info("[Email Enumeration] Generating potential email addresses...")
-            email_task = asyncio.create_task(run_email_enumeration_async(
+            email_future = await task_manager.submit(run_email_enumeration_async(
                 target_name=args.target,
                 domain=args.domain,
                 custom_domains=args.domains,
                 verify_mx=not args.passive,  # Skip MX verification in passive mode
                 passive_only=args.passive
-            ))
-            tasks.append(("email", email_task))
+            ), priority=TaskPriority.NORMAL)
+            tasks.append(("email", email_future))
 
         # 3. Search Engines (Async)
         if not args.skip_search:
             logger.info("[Search Engines] Queuing search engine modules...")
-            search_task = asyncio.create_task(run_search_engines_async(args.target, config_dict, js_render=args.js_render))
-            tasks.append(("search", search_task))
+            search_future = await task_manager.submit(run_search_engines_async(args.target, config_dict, js_render=args.js_render), priority=TaskPriority.NORMAL)
+            tasks.append(("search", search_future))
 
         # 4. Social Media (Async)
         if not args.skip_social:
@@ -258,10 +268,10 @@ async def main_async():
             if args.passive or args.no_verify:
                 # Just check existence (passive dorking in passive mode)
                 for name in target_names:
-                    social_task = asyncio.create_task(run_social_media_checks_async(
+                    social_future = await task_manager.submit(run_social_media_checks_async(
                         name, args.type, config_dict, passive_only=args.passive
-                    ))
-                    tasks.append(("social", social_task))
+                    ), priority=TaskPriority.LOW)
+                    tasks.append(("social", social_future))
             else:
                 # Check and Verify
                 additional_info = {}
@@ -269,13 +279,13 @@ async def main_async():
                 if args.location: additional_info["location"] = args.location
                 if args.email: additional_info["email"] = args.email
                 
-                verify_task = asyncio.create_task(enhanced_social_media_check_with_verification_async(
+                verify_future = await task_manager.submit(enhanced_social_media_check_with_verification_async(
                     target=args.target,
                     target_type=args.type,
                     config=config_dict,
                     additional_info=additional_info
-                ))
-                tasks.append(("social_verify", verify_task))
+                ), priority=TaskPriority.HIGH)
+                tasks.append(("social_verify", verify_future))
 
         # Wait for all async tasks to complete
         if tasks:
@@ -299,6 +309,7 @@ async def main_async():
 
     finally:
         # Cleanup
+        await task_manager.stop()
         await request_manager.close()
 
     # Deduplication (Sync)

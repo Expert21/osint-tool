@@ -13,6 +13,37 @@ class ResourceLimiter:
     MAX_CHUNK_SIZE = 8192  # 8 KB chunks
     
     @staticmethod
+    def auto_detect_resources():
+        """
+        Auto-detect system resources and adjust limits accordingly.
+        """
+        try:
+            import psutil
+            
+            # Memory check
+            mem = psutil.virtual_memory()
+            total_ram_gb = mem.total / (1024**3)
+            
+            if total_ram_gb >= 16:
+                ResourceLimiter.MAX_RESPONSE_SIZE = 50 * 1024 * 1024  # 50 MB
+                ResourceLimiter.MAX_CONTENT_LENGTH = 200 * 1024 * 1024  # 200 MB
+                ResourceLimiter.MAX_RESULTS_TOTAL = 5000
+                logger.info(f"High-spec system detected ({total_ram_gb:.1f} GB RAM). Increased limits.")
+            elif total_ram_gb >= 8:
+                ResourceLimiter.MAX_RESPONSE_SIZE = 20 * 1024 * 1024  # 20 MB
+                ResourceLimiter.MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100 MB
+                ResourceLimiter.MAX_RESULTS_TOTAL = 2000
+                logger.info(f"Mid-spec system detected ({total_ram_gb:.1f} GB RAM). Adjusted limits.")
+            else:
+                logger.info(f"Standard system detected ({total_ram_gb:.1f} GB RAM). Using default limits.")
+                
+        except ImportError:
+            logger.warning("psutil not found. Using default resource limits.")
+        except Exception as e:
+            logger.warning(f"Resource auto-detection failed: {e}")
+
+    
+    @staticmethod
     def check_content_length(headers: dict) -> bool:
         """
         Check if Content-Length header is within acceptable limits.

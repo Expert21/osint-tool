@@ -172,23 +172,41 @@ class ResultDeduplicator:
         
         # Group results by platform/source
         platforms = {}
+        usernames = {}
+        
         for result in results:
             platform = result.get('platform') or result.get('source', 'unknown')
+            username = result.get('username')
+            
             if platform not in platforms:
                 platforms[platform] = []
             platforms[platform].append(result)
+            
+            if username:
+                if username not in usernames:
+                    usernames[username] = []
+                usernames[username].append(platform)
         
-        # Identify cross-platform connections
+        # Identify cross-platform connections based on username reuse
+        for username, platform_list in usernames.items():
+            if len(platform_list) > 1:
+                connections.append({
+                    'type': 'username_reuse',
+                    'username': username,
+                    'platforms': platform_list,
+                    'description': f"Username '{username}' used across {len(platform_list)} platforms: {', '.join(platform_list)}",
+                    'confidence': 'high'
+                })
+
+        # Identify cross-platform connections (general)
         platform_list = list(platforms.keys())
-        for i, platform1 in enumerate(platform_list):
-            for platform2 in platform_list[i+1:]:
-                if platforms[platform1] and platforms[platform2]:
-                    connections.append({
-                        'type': 'cross_platform',
-                        'platforms': [platform1, platform2],
-                        'description': f"Target found on both {platform1} and {platform2}",
-                        'confidence': 'medium'
-                    })
+        if len(platform_list) > 1:
+             connections.append({
+                'type': 'cross_platform_presence',
+                'platforms': platform_list,
+                'description': f"Target found on {len(platform_list)} different platforms/sources",
+                'confidence': 'medium'
+            })
         
         return connections
     

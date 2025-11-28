@@ -1,8 +1,11 @@
 from typing import Dict, Any
 import re
+import logging
 from src.orchestration.interfaces import ToolAdapter
 from src.orchestration.docker_manager import DockerManager
 from src.core.input_validator import InputValidator
+
+logger = logging.getLogger(__name__)
 
 class TheHarvesterAdapter(ToolAdapter):
     def __init__(self, docker_manager: DockerManager):

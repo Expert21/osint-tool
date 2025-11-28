@@ -62,12 +62,69 @@ class DockerManager:
             logger.error(f"Failed to pull image {trusted_image}: {e}")
             raise
 
+    def remove_image(self, image_name: str, force: bool = False):
+        """
+        Remove a Docker image from the local system.
+        
+        OPSEC: Use this to remove images after use for privacy/disk space.
+        
+        Args:
+            image_name: Name of the image to remove (must be in TRUSTED_IMAGES)
+            force: Force removal even if containers are using it
+            
+        Returns:
+            True if removed, False if not found
+        """
+        if not self.is_available:
+            raise RuntimeError("Docker is not available")
+        
+        # SECURITY: Only remove whitelisted images
+        if image_name not in TRUSTED_IMAGES:
+            raise ValueError(f"Cannot remove untrusted image: {image_name}")
+        
+        trusted_image = TRUSTED_IMAGES[image_name]
+        
+        try:
+            self.client.images.remove(trusted_image, force=force)
+            logger.info(f"Removed image {trusted_image}")
+            return True
+        except docker.errors.ImageNotFound:
+            logger.debug(f"Image {trusted_image} not found, nothing to remove")
+            return False
+        except docker.errors.APIError as e:
+            logger.warning(f"Failed to remove image {trusted_image}: {e}")
+            if not force:
+                logger.info("Tip: Use force=True to remove images with dependent resources")
+            raise
+
+    def cleanup_all_tool_images(self, force: bool = False) -> Dict[str, bool]:
+        """
+        Remove all OSINT tool images from the system.
+        
+        OPSEC: Use this for complete cleanup after operations.
+        
+        Args:
+            force: Force removal even if containers exist
+            
+        Returns:
+            Dict mapping image names to removal success status
+        """
+        results = {}
+        for image_name in TRUSTED_IMAGES.keys():
+            try:
+                results[image_name] = self.remove_image(image_name, force=force)
+            except Exception as e:
+                logger.error(f"Error removing {image_name}: {e}")
+                results[image_name] = False
+        return results
+
     def run_container(
         self, 
         image_name: str, 
         command: Union[str, List[str]], 
         environment: Optional[Dict] = None,
-        timeout: int = 300
+        timeout: int = 300,
+        cleanup_image: bool = False
     ) -> str:
         """
         Run a command in a temporary container and return the output.
@@ -94,6 +151,7 @@ class DockerManager:
             ValueError: If image is not trusted
             RuntimeError: If Docker is not available
             docker.errors.ContainerError: If container execution fails
+            cleanup_image: Remove the Docker image after execution (OPSEC mode)
         """
         if not self.is_available:
             raise RuntimeError("Docker is not available")
@@ -190,3 +248,12 @@ class DockerManager:
                     logger.debug(f"Removed container {container.id[:12]}")
                 except Exception as e:
                     logger.warning(f"Failed to remove container: {e}")
+            
+            # OPSEC: Optionally cleanup image as well
+            if cleanup_image:
+                try:
+                    logger.info(f"OPSEC mode: Removing image {trusted_image}...")
+                    self.remove_image(image_name, force=True)
+                    logger.info(f"Image {trusted_image} removed for privacy")
+                except Exception as e:
+                    logger.warning(f"Failed to remove image in cleanup: {e}")

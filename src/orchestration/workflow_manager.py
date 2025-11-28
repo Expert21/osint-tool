@@ -12,8 +12,15 @@ class WorkflowManager:
     Manages sequential execution of OSINT tools.
     """
 
-    def __init__(self):
+    def __init__(self, cleanup_images: bool = False):
+        """
+        Initialize WorkflowManager.
+        
+        Args:
+            cleanup_images: If True, remove Docker images after execution (OPSEC mode)
+        """
         self.docker_manager = DockerManager()
+        self.cleanup_images = cleanup_images
         self.adapters = {
             "sherlock": SherlockAdapter(self.docker_manager),
             "theharvester": TheHarvesterAdapter(self.docker_manager),

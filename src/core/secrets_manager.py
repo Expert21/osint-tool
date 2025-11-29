@@ -37,6 +37,9 @@ class SecretsManager:
     1. Environment variables (most secure for production/CI)
     2. OS Keyring (secure local storage)
     3. Encrypted local file (fallback/legacy)
+    
+    SECURITY NOTE: The file-based fallback relies on OS file permissions (ACLs/chmod) to protect 
+    the encryption key and salt. Physical access or root/admin access to the machine compromises this.
     """
     
     def __init__(self):

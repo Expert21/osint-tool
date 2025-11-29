@@ -9,7 +9,7 @@ from typing import List, Dict, Optional
 import docker
 from docker.errors import APIError, ImageNotFound, DockerException, NotFound
 import logging
-from security_error import SecurityError
+from .security_error import SecurityError
 
 logger = logging.getLogger(__name__)
 # Assumed to exist in your code base:
@@ -85,6 +85,8 @@ class DockerManager:
         - Overwrite files with zero bytes (attempt), then unlink.
         - Finally remove directory tree.
         Note: true secure deletion depends on filesystem; this is best-effort.
+        WARNING: On modern SSDs/Flash storage with wear leveling, this does NOT guarantee data destruction.
+        For high security, use encrypted volumes or RAM disks.
         """
         try:
             if not os.path.exists(path):
@@ -210,11 +212,29 @@ class DockerManager:
                 file_like.write(chunk)
             file_like.seek(0)
             with tarfile.open(fileobj=file_like) as tf:
-                tf.extractall(host_dest)
+                # SECURITY: Prevent Zip Slip vulnerability
+                for member in tf.getmembers():
+                    self._safe_extract(tf, member, host_dest)
             return True
         except Exception as e:
             logger.error(f"Failed to extract archive for {container_path}: {e}")
             return False
+
+    def _safe_extract(self, tar, member, path):
+        """
+        Safely extract a tar member, preventing Zip Slip.
+        """
+        # Resolve the destination path
+        dest_path = os.path.abspath(path)
+        # Resolve the member path
+        member_path = os.path.abspath(os.path.join(dest_path, member.name))
+        
+        # Check if the member path is within the destination path
+        if not member_path.startswith(dest_path):
+            raise SecurityError(f"Attempted Zip Slip attack: {member.name}")
+            
+        # Extract the member
+        tar.extract(member, path)
 
     # --------------------
     # Cleanup: check for leftover docker container metadata dirs

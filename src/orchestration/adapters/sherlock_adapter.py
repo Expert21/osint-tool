@@ -1,13 +1,13 @@
 from typing import Dict, Any
 import re
 from src.orchestration.interfaces import ToolAdapter
-from src.orchestration.docker_manager import DockerManager
+from src.orchestration.execution_strategy import ExecutionStrategy
 from src.core.input_validator import InputValidator
 
 class SherlockAdapter(ToolAdapter):
-    def __init__(self, docker_manager: DockerManager):
-        self.docker_manager = docker_manager
-        self.image = "sherlock/sherlock"
+    def __init__(self, execution_strategy: ExecutionStrategy):
+        self.execution_strategy = execution_strategy
+        self.tool_name = "sherlock"
 
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -28,7 +28,7 @@ class SherlockAdapter(ToolAdapter):
         
         # Use list format to prevent shell injection
         command = [sanitized_target, "--print-found"]
-        output = self.docker_manager.run_container(self.image, command)
+        output = self.execution_strategy.execute(self.tool_name, command, config)
         return self.parse_results(output)
 
     def parse_results(self, output: str) -> Dict[str, Any]:

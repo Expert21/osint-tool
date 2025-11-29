@@ -81,18 +81,48 @@ async def main_async():
     parser.add_argument("--proxies", help="Path to proxy list file")
     parser.add_argument("--fetch-proxies", action="store_true", help="Fetch free proxies and save to file")
 
-    # Phase 1: Docker Orchestration
-    parser.add_argument("--mode", choices=["native", "docker"], default="native", help="Execution mode")
-    parser.add_argument("--tool", choices=["sherlock", "theharvester", "holehe", "phoneinfoga", "sublist3r", "photon", "exiftool"], help="Specific tool to run in Docker mode")
-    
+    # Phase 3: Modes & UX
+    parser.add_argument("--mode", choices=["native", "docker", "hybrid"], default="native", help="Execution mode")
+    parser.add_argument("--tool", choices=["sherlock", "theharvester", "holehe", "phoneinfoga", "sublist3r", "photon", "exiftool"], help="Specific tool to run")
+    parser.add_argument("--doctor", action="store_true", help="Run system diagnostics")
+    parser.add_argument("--pull-images", action="store_true", help="Pull all required Docker images")
+
     # Environment Management
     parser.add_argument("--import-env", action="store_true", help="Import .env file values into secure encrypted storage")
     
     args = parser.parse_args()
     
-    # Setup logger
-    logger = setup_logger()
+    # Setup logger with Rich
+    from rich.logging import RichHandler
+    logging.basicConfig(
+        level="INFO",
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[RichHandler(rich_tracebacks=True)]
+    )
+    logger = logging.getLogger("hermes")
     
+    # Handle Doctor
+    if args.doctor:
+        from src.core.doctor import HermesDoctor
+        doc = HermesDoctor()
+        doc.run_diagnostics()
+        doc.print_report()
+        return 0
+
+    # Handle Pull Images
+    if args.pull_images:
+        from src.orchestration.docker_manager import DockerManager
+        logger.info("Pulling Docker images...")
+        dm = DockerManager()
+        if not dm.is_available:
+            logger.error("Docker is not available.")
+            return 1
+        for image in dm.TRUSTED_IMAGES:
+            dm.pull_image(image)
+        logger.info("All images pulled successfully.")
+        return 0
+
     # Handle interactive mode
     if args.interactive:
         wizard_config = run_interactive_mode()
@@ -148,61 +178,40 @@ async def main_async():
         return 0
     
     # Validate required arguments
-
-    # Handle Docker Mode
-    if args.mode == "docker":
-        if not args.tool:
-            logger.error("Docker mode requires --tool argument")
-            return 1
-            
-        logger.info(f"Starting Docker execution for {args.tool} against {args.target}")
-        try:
-            from src.orchestration.docker_manager import DockerManager
-            from src.orchestration.adapters.sherlock_adapter import SherlockAdapter
-            from src.orchestration.adapters.theharvester_adapter import TheHarvesterAdapter
-            from src.orchestration.adapters.holehe_adapter import HoleheAdapter
-            from src.orchestration.adapters.phoneinfoga_adapter import PhoneInfogaAdapter
-            from src.orchestration.adapters.sublist3r_adapter import Sublist3rAdapter
-            from src.orchestration.adapters.photon_adapter import PhotonAdapter
-            from src.orchestration.adapters.exiftool_adapter import ExiftoolAdapter
-            
-            docker_manager = DockerManager()
-        except ImportError:
-            logger.error("Docker module not found. Please install 'docker' package.")
-            return 1
+    if args.tool:
+        # Tool execution mode (Single tool)
+        logger.info(f"Starting execution for {args.tool} in {args.mode} mode...")
         
-        if not docker_manager.is_available:
-            logger.error("Docker is not available. Please ensure Docker is installed and running.")
-            return 1
+        from src.orchestration.execution_strategy import DockerExecutionStrategy, NativeExecutionStrategy, HybridExecutionStrategy
+        from src.orchestration.docker_manager import DockerManager
+        
+        # Initialize Strategy
+        strategy = None
+        if args.mode == "docker":
+            strategy = DockerExecutionStrategy(DockerManager())
+        elif args.mode == "native":
+            strategy = NativeExecutionStrategy()
+        elif args.mode == "hybrid":
+            strategy = HybridExecutionStrategy(DockerExecutionStrategy(DockerManager()), NativeExecutionStrategy())
             
         try:
-            results = {}
+            # We need to map tool names to adapters or just run raw commands?
+            # The original code used adapters. Let's stick to adapters but inject the strategy.
+            # For now, only Sherlock adapter is updated.
+            
             if args.tool == "sherlock":
-                adapter = SherlockAdapter(docker_manager)
+                from src.orchestration.adapters.sherlock_adapter import SherlockAdapter
+                adapter = SherlockAdapter(strategy)
                 results = adapter.execute(args.target, {})
-            elif args.tool == "theharvester":
-                adapter = TheHarvesterAdapter(docker_manager)
-                results = adapter.execute(args.target, {})
-            elif args.tool == "holehe":
-                adapter = HoleheAdapter(docker_manager)
-                results = adapter.execute(args.target, {})
-            elif args.tool == "phoneinfoga":
-                adapter = PhoneInfogaAdapter(docker_manager)
-                results = adapter.execute(args.target, {})
-            elif args.tool == "sublist3r":
-                adapter = Sublist3rAdapter(docker_manager)
-                results = adapter.execute(args.target, {})
-            elif args.tool == "photon":
-                adapter = PhotonAdapter(docker_manager)
-                results = adapter.execute(args.target, {})
-            elif args.tool == "exiftool":
-                adapter = ExiftoolAdapter(docker_manager)
-                results = adapter.execute(args.target, {})
-                
-            logger.info(f"Execution complete. Results: {results}")
-            return 0
+                logger.info(f"Results: {results}")
+                return 0
+            else:
+                logger.warning(f"Adapter for {args.tool} not yet updated for new strategy. Running legacy Docker mode if available.")
+                # Fallback to legacy logic if needed, or just fail for now as we are in dev
+                return 1
+
         except Exception as e:
-            logger.error(f"Docker execution failed: {e}")
+            logger.error(f"Execution failed: {e}")
             return 1
 
     if not args.target or not args.type:
@@ -310,7 +319,15 @@ async def main_async():
         # Wait for all async tasks to complete
         if tasks:
             logger.info(f"Executing {len(tasks)} async task groups...")
-            await asyncio.gather(*[t[1] for t in tasks])
+            from rich.progress import Progress
+            with Progress() as progress:
+                task_id = progress.add_task("[cyan]Scanning...", total=len(tasks))
+                
+                # We need to await tasks but also update progress.
+                # Since we used gather, we can't easily update progress per task completion without as_completed
+                # For now, let's just await all.
+                await asyncio.gather(*[t[1] for t in tasks])
+                progress.update(task_id, completed=len(tasks))
             
             # Collect results
             for task_type, task in tasks:

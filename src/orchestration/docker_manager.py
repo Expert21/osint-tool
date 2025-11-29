@@ -194,7 +194,7 @@ class DockerManager:
                 pids_limit=100,             # Max 100 processes
                 
                 # SECURITY: Network and filesystem restrictions
-                network_mode="none",        # No network access (tools should work offline)
+                network_mode="bridge",      # Allow network access for tools
                 read_only=False,            # Some tools need to write temp files
                 
                 # SECURITY: Privilege restrictions

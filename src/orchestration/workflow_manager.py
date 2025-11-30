@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 from typing import List, Dict, Any
 import logging
 from src.orchestration.docker_manager import DockerManager

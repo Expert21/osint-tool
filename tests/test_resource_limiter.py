@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 import pytest
 from unittest.mock import patch, MagicMock
 from src.core.resource_limiter import ResourceLimiter

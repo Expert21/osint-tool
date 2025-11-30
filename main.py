@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 import argparse
 import sys
 import asyncio
@@ -26,7 +31,7 @@ from src.core.interactive import run_interactive_mode
 
 async def main_async():
     parser = argparse.ArgumentParser(
-        description="OSINT Tool - Social Media & Email Enumeration (v1.5.0)",
+        description="OSINT Tool - Social Media & Email Enumeration (v2.0 Alpha)",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     

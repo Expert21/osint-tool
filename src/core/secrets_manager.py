@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 import os
 from pathlib import Path
 import logging

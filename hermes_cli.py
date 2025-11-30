@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 """
 Hermes CLI entry point
 This module is used when running 'hermes' command after installation

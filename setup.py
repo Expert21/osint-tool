@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 from setuptools import setup, find_packages
 import os
 
@@ -8,7 +13,7 @@ with open(readme_path, "r", encoding="utf-8") as fh:
 
 setup(
     name="hermes-osint",
-    version="1.6.0",
+    version="2.0.0-alpha",
     author="Expert21",
     author_email="isaiahmyles04@gmail.com",
     description="Advanced OSINT Intelligence Gathering Tool",

@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 """
 Structured logging for scan events and failures.
 Creates a detailed log of what was checked, what failed, and why.

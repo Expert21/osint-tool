@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 import asyncio
 from src.core.secrets_manager import SecretsManager
 from src.core.proxy_manager import ProxyManager

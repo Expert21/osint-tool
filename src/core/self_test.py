@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 """
 Hermes Self-Test Module - Simplified Version
 Verifies all components can be imported without performing actual operations

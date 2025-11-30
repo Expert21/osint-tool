@@ -1,9 +1,14 @@
+# -----------------------------------------------------------------------------
+# Hermes OSINT - V2.0 Alpha
+# This project is currently in an alpha state.
+# -----------------------------------------------------------------------------
+
 """
 Hermes OSINT Tool
 Advanced Open Source Intelligence Gathering Framework
 """
 
-__version__ = "1.6.0"
+__version__ = "2.0.0-alpha"
 __author__ = "Expert21"
 __description__ = "Advanced OSINT Intelligence Gathering Tool"
 

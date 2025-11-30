@@ -1,294 +1,154 @@
-# Hermes 🕊️
+# Hermes OSINT 2.0 (Alpha)
 
-**Advanced OSINT Intelligence Gathering Tool**
+🚧 **STATUS: ALPHA RELEASE — NOT READY FOR CASUAL USE** 🚧
 
-## Version 2.0 Alpha Now Available!
+Hermes 2.0 is a complete rebuild of the Hermes OSINT framework with a focus on:
 
+* Fully ephemeral execution of OSINT tools
+* Docker‑based isolation and security
+* Strong output handling and extraction
+* A more modular, extensible architecture
 
-Hermes is a powerful, command-line OSINT (Open Source Intelligence) tool designed for comprehensive digital footprint analysis. Named after the Greek messenger god, Hermes swiftly gathers intelligence across multiple platforms and presents it in professional, actionable reports.
+This is **not** a stable release. Many features are implemented, but some tools, modules, and workflows are incomplete or partially broken. **Casual users should *not* rely on Hermes 2.0 Alpha for production investigations.**
 
-![Version](https://img.shields.io/badge/version-2.0-blue)
-![Python](https://img.shields.io/badge/python-3.7+-green)
-![License](https://img.shields.io/badge/license-AGPL--3.0-orange)
-
-> **🚀 Alpha Release:** Hermes v2.0 is now in Alpha! This version introduces hybrid execution modes, enhanced performance, and a new plugin system, but is not yet fully implemented. Your feedback is highly appreciated!
+However — **testers, contributors, and developers are highly encouraged to experiment, break things, and submit issues + PRs.**
 
 ---
 
-## 🎯 What is Hermes?
+## 🚀 Current Alpha Goals
 
-Hermes is a comprehensive OSINT framework that automates the process of gathering publicly available information about individuals and organizations. It combines multiple intelligence-gathering techniques into a single, easy-to-use tool with professional reporting capabilities.
+Hermes 2.0 Alpha focuses on restructuring the core pipeline:
 
+* Ephemeral container lifecycle with secure teardown
+* Trust‑based Docker image verification
+* Tool‑specific modules (WIP)
+* Enhanced logging and output extraction
+* Improved internal architecture for future UI + automation layers
 
+Many components function reliably — others are still being built.
 
-## 🚀 Quick Start
+---
 
-### Installation
+## ⚠️ Alpha State (What Works / What’s Broken)
+
+### ✅ **Working / Mostly Working**
+
+* Core DockerManager lifecycle
+* Ephemeral execution model
+* Tool pulling & hashing (digest validation)
+* Config + environment loading
+* CLI operations
+
+### ⚠️ **Partially Implemented**
+
+* Tool modules (subfinder, searxng, holehe, etc.)
+* Output routing
+* Error handling across certain tools
+* Image trust lists
+
+### ❌ **Not Implemented / Broken**
+
+* TUI rewrite
+* Full automation sequences
+* Some tool wrappers that rely on unstable docker images
+
+---
+
+## 🧩 Requirements
+
+Hermes **requires Docker**. It will not function without it.
+
+### **System Requirements**
+
+* Docker Engine (latest recommended)
+* Python 3.10+
+* Linux/macOS/Windows (WSL recommended for Win)
+
+### **Python Dependencies**
+
+All dependencies are listed in `requirements.txt`.
+Install with:
 
 ```bash
-# Clone the repository
-git clone https://github.com/Expert21/hermes-osint.git
-cd hermes-osint
-
-# Install dependencies
 pip install -r requirements.txt
-
-# First-run setup: Create profiles and .env template
-hermes --create-profiles
-hermes --init-env
-
-# Edit .env with your API keys, then import
-hermes --import-env
-
-# Verify installation (test all modules)
-python hermes-test.py
 ```
 
-### Usage Examples
+---
+
+## 🐳 Docker Requirements
+
+Hermes pulls and runs OSINT tools *inside isolated ephemeral containers*.
+
+You must have Docker installed and running:
 
 ```bash
-# Quick start (interactive mode recommended for beginners)
-hermes --interactive
-
-# Individual scan (Hybrid mode by default)
-hermes --target "johndoe" --type individual
-
-# Force Docker mode for isolation
-hermes --target "johndoe" --type individual --mode docker
-
-# Run specific tool
-hermes --tool sherlock --target "johndoe" --mode native
-
-# System diagnostics
-hermes --doctor
-
-# Pull all required Docker images
-hermes --pull-images
-
-# Individual with email enumeration
-hermes --target "John Doe" --type individual --email-enum --domain company.com
-
-# Generate reports (JSON, HTML, PDF, Markdown, STIX)
-hermes --target "johndoe" --type individual --output report.html
-
-# Deep scan with config profile
-hermes --target "johndoe" --type individual --config deep_scan
-
-# Username variations with leet speak
-hermes --target "johndoe" --type individual --username-variations --include-leet
-
-# Cache management
-hermes --cache-stats
-hermes --clear-cache
+docker --version
 ```
 
----
+### Notes
 
-## 🛠️ Command-Line Reference
-
-### Required Arguments
-- `--target` - Target name (individual or company)
-- `--type` - Target type: `individual` or `company`
-
-### Output Options
-- `--output` - Output file (default: report.json)
-  - Supported formats: `.json`, `.html`, `.md`, `.pdf`, `.stix.json`
-
-### Configuration
-- `--config` - Use configuration profile (default, quick_scan, deep_scan)
-- `--list-profiles` - List available profiles
-- `--create-profiles` - Create default profiles
-
-### Intelligence Modules
-- `--email-enum` - Enable email enumeration
-- `--domain` - Primary domain for email/DNS
-- `--domains` - Additional domains (space-separated)
-
-### Advanced Features
-- `--username-variations` - Try username variations
-- `--include-leet` - Include leet speak (j0hnd0e)
-- `--include-suffixes` - Include number suffixes (johndoe123)
-- `--interactive`, `-i` - Interactive wizard mode
-
-### Cache Management
-- `--cache-stats` - Show cache statistics
-- `--clear-cache` - Clear all cached results
-
-### Execution Control
-- `--mode` - Execution mode: `native`, `docker`, `hybrid` (default: native)
-- `--tool` - Run a specific tool (e.g., `sherlock`, `theharvester`)
-- `--doctor` - Run system diagnostics
-- `--pull-images` - Pull required Docker images
-
-### Control Flags
-- `--skip-social` - Skip social media
-- `--no-progress` - Disable progress indicators
-- `--no-dedup` - Disable deduplication
+* Some tools require specific, reliable Docker images
+* Hermes uses digest pinning and trust lists (WIP)
+* If an image for a tool doesn't exist or is unreliable, Hermes may currently fail silently or with partial errors (Alpha behavior)
 
 ---
 
-
-## 🔧 Configuration
-
-### Environment-Based Configuration
-
-Hermes uses `.env` files for configuration. Generate a template and import your settings:
+## 📦 Installation (Alpha)
 
 ```bash
-# Generate .env template with all available options
-hermes --init-env
-
-# Edit .env file with your API keys and preferences
-# Then import and encrypt the settings
-hermes --import-env
-
-# Verify your configuration
-python verify_config.py
+git clone https://github.com/Expert21/hermes-osint
+cd hermes-osint
+pip install -r requirements.txt
 ```
 
-### Configuration Profiles
-
-Hermes provides three built-in scan profiles in `.osint_profiles/`:
-
-**Default Profile** - Balanced scanning with core features enabled
-**Quick Scan** - Fast scans with minimal verification (1-2s delays)
-**Deep Scan** - Comprehensive scanning with all features enabled (longer delays)
-
-Create profiles with:
-```bash
-hermes --create-profiles
-hermes --list-profiles
-```
-
-Use a specific profile:
-```bash
-hermes --target "johndoe" --type individual --config deep_scan
-```
-
-### .env Configuration Example
+Run Hermes:
 
 ```bash
-# API Keys (encrypted after import)
-GOOGLE_API_KEY=your_key_here
-TWITTER_BEARER_TOKEN=your_token_here
-GITHUB_ACCESS_TOKEN=your_token_here
-
-# Timing Configuration
-TIMING_MIN_DELAY=2.0
-TIMING_MAX_DELAY=5.0
-TIMING_TIMEOUT=15
-
-# Feature Toggles
-FEATURES_EMAIL_ENUMERATION=true
-FEATURES_VERIFICATION=true
-FEATURES_DEDUPLICATION=true
-
-# Platform Toggles
-PLATFORMS_SOCIAL_MEDIA_TWITTER=true
-PLATFORMS_SOCIAL_MEDIA_GITHUB=true
-PLATFORMS_SEARCH_ENGINES_DUCKDUCKGO=true
+python3 hermes.py
 ```
 
 ---
 
-## 📊 Output Formats
+## 🧪 Contributing / Testing
 
-**HTML** - Responsive design with embedded CSS, statistics dashboard, color-coded quality scores
+Hermes 2.0 Alpha needs testers. If you:
 
-**PDF** - Professional formatting with executive summary and quality score breakdown
+* Encounter a broken module
+* Find an unreliable Docker image
+* Have ideas for improving the ephemeral architecture
+* Want to contribute to tool modules
 
-**Markdown** - Clean, GitHub-compatible format with tables and statistics
-
-**JSON** - Structured data for further analysis and automation
-
-**STIX 2.1** - Industry-standard threat intelligence format (TAXII-compatible)
-
----
-
-## 🎓 Use Cases
-
-- **Security Research** - Investigate potential threats and vulnerabilities
-- **Due Diligence** - Background checks for business partnerships
-- **Digital Footprint Analysis** - Understand your own online presence
-- **Competitive Intelligence** - Research competitors and market landscape
-- **Threat Intelligence** - Gather information for security operations
-- **Journalism** - Research subjects for investigative reporting
+Please open an issue or submit a PR.
 
 ---
 
-## ⚠️ Legal & Ethical Considerations
+## 📝 Roadmap for 2.0
 
-**IMPORTANT:** Hermes is designed for legitimate OSINT activities only.
-
-- ✅ Use only on publicly available information
-- ✅ Respect platform Terms of Service
-- ✅ Comply with local laws and regulations
-- ✅ Obtain proper authorization when required
-- ❌ Do not use for harassment or stalking
-- ❌ Do not use for unauthorized access attempts
-- ❌ Do not violate privacy laws
-
-**The developers are not responsible for misuse of this tool.**
+* Stable module system
+* Automated docker image generation for tools that currently lack them
+* Hardened ephemeral container workflows
+* Expanded OSINT tool library
+* TUI rebuild (security‑aware)
+* Plugin ecosystem
 
 ---
 
-## 🤝 Contributing
+## ❗ Disclaimer
 
-Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+Hermes 2.0 Alpha is experimental software.
+It may:
 
----
+* Delete containers incorrectly
+* Fail to extract output
+* Throw non‑critical or confusing errors
+* Behave unpredictably as tools update
 
-## 📝 License
-
-### Community Edition - AGPL-3.0
-
-Hermes OSINT Tool is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
-
-This means:
-- ✅ **Free to use** for personal and commercial purposes
-- ✅ **Open source** - you can view, modify, and distribute the code
-- ✅ **Copyleft** - modifications must also be open-sourced under AGPL-3.0
-- ⚠️ **Network use = Distribution** - If you run Hermes as a service, you must share your code
-
-**Key AGPL-3.0 Requirement:** If you modify Hermes and offer it as a web service or SaaS, you **must** make your modified source code available to users.
-
-See the [LICENSE](LICENSE) file for full details.
-
-### Enterprise Edition - Commercial License
-
-Need to use Hermes without AGPL restrictions? We offer a **Commercial License** for:
-- 🏢 Running as a proprietary service without releasing source code
-- 🔒 Keeping your modifications and integrations private
-- 📞 Priority support and SLAs
-- ⚖️ Legal indemnification and compliance assistance
-
-**Interested in Enterprise?** Contact: isaiahmyles04@gmail.com or see [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) for details.
+Use with caution.
 
 ---
 
-### Why AGPL-3.0?
+## ⭐ Credits
 
-We chose AGPL-3.0 to:
-1. Keep the core tool **free and open** for the security community
-2. Ensure improvements benefit everyone (unless you buy a commercial license)
-3. Prevent proprietary forks without contribution back
-4. Enable sustainable development through enterprise licensing
+Built by **Expert21**
 
----
-
-## 🙏 Acknowledgments
-
-- Built with Python and love for the OSINT community
-- Inspired by the need for accessible intelligence gathering tools
-- Named after Hermes, the Greek god of messages and communication
-
----
-
-## 📞 Support
-
-For questions, issues, or feature requests, please open an issue on GitHub.
-
----
-
-**Hermes** - *Swift Intelligence, Divine Insights* 🕊️
-
+Contributions welcome — Hermes 2.0 is a community‑driven OSINT framework.

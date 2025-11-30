@@ -1,3 +1,8 @@
+<!--
+Hermes OSINT - V2.0 Alpha
+This project is currently in an alpha state.
+-->
+
 # Tool Adapter Developer Guide
 
 Hermes v2.0 introduces a standardized `ToolAdapter` interface that allows developers to easily add support for new OSINT tools. This guide explains how to create, test, and register a new adapter.

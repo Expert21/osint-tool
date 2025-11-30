@@ -1,3 +1,8 @@
+<!--
+Hermes OSINT - V2.0 Alpha
+This project is currently in an alpha state.
+-->
+
 # Hermes OSINT 2.0 (Alpha)
 
 🚧 **STATUS: ALPHA RELEASE — NOT READY FOR CASUAL USE** 🚧

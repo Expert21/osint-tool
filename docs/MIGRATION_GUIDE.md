@@ -1,3 +1,8 @@
+<!--
+Hermes OSINT - V2.0 Alpha
+This project is currently in an alpha state.
+-->
+
 # Migration Guide: v1.x to v2.0
 
 Hermes v2.0 introduces significant architectural changes. This guide will help you migrate your existing installation and workflows.

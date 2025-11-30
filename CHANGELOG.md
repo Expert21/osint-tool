@@ -1,3 +1,8 @@
+<!--
+Hermes OSINT - V2.0 Alpha
+This project is currently in an alpha state.
+-->
+
 # Changelog
 
 All notable changes to Hermes OSINT Tool will be documented in this file.

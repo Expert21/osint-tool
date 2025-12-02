@@ -5,15 +5,15 @@
 
 from typing import Dict, Any
 from src.orchestration.interfaces import ToolAdapter
-from src.orchestration.docker_manager import DockerManager
+from src.orchestration.execution_strategy import ExecutionStrategy
 from src.core.input_validator import InputValidator
 from src.core.url_validator import URLValidator
 
 
 class PhotonAdapter(ToolAdapter):
-    def __init__(self, docker_manager: DockerManager):
-        self.docker_manager = docker_manager
-        self.image = "s0md3v/photon"
+    def __init__(self, execution_strategy: ExecutionStrategy):
+        self.execution_strategy = execution_strategy
+        self.tool_name = "photon"
 
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -32,7 +32,8 @@ class PhotonAdapter(ToolAdapter):
             
         # Use list format to prevent shell injection
         command = ["-u", target, "--only-urls"]
-        output = self.docker_manager.run_container(self.image, command)
+        
+        output = self.execution_strategy.execute(self.tool_name, command, config)
         return self.parse_results(output)
 
     def parse_results(self, output: str) -> Dict[str, Any]:

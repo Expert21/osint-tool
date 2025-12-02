@@ -40,6 +40,9 @@ class DockerManager:
     "projectdiscovery/subfinder":"projectdiscovery/subfinder@sha256:70d8fa85be31de07d4aee7f7058effb83f9e5322154417c4267fddb6a4d79d99",
     "ghcr.io/laramies/theharvester:sha-af61197":"ghcr.io/laramies/theharvester:sha-af61197@sha256:5836bcb85ed30ac55391a329b1eb6b12aa6430d31118ab1d3afdd47786a42731",
     "sundowndev/phoneinfoga":"sundowndev/phoneinfoga@sha256:0706f55ef1eeae1352ea4f48f57a3490c8ea87ac055aa6d4491f72405c36e445",
+    # NOTE: s0md3v/photon is typically built locally, not pulled from a registry
+    # This is a placeholder SHA256 - update with actual digest if using a published image
+    "s0md3v/photon":"s0md3v/photon@sha256:0000000000000000000000000000000000000000000000000000000000000000",
     # Untrusted Images are below - Replace images with trusted images/custom images
     "ai2ys/exiftool":"ai2ys/exiftool@sha256:8a4e5be8cba9b234518c1b53c6645e8857508e684849564ab81b5bac1f6b5a48",
     "gmrnonoss/holehe":"gmrnonoss/holehe@sha256:c50267f3664cf26a4be242899d95e86b1cd82d0aad3085df5e74387d1de8bbc8"

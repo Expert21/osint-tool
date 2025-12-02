@@ -54,7 +54,7 @@ class DockerExecutionStrategy(ExecutionStrategy):
             "phoneinfoga": "sundowndev/phoneinfoga",
             "subfinder": "projectdiscovery/subfinder",
             "searxng": "searxng/searxng",
-            "photon": "photon", # Placeholder - no image yet
+            "photon": "s0md3v/photon",
             "exiftool": "ai2ys/exiftool"
         }
 

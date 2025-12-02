@@ -14,6 +14,10 @@ class ExiftoolAdapter(ToolAdapter):
         self.execution_strategy = execution_strategy
         self.tool_name = "exiftool"
 
+    def can_run(self) -> bool:
+        """Check if Exiftool is available."""
+        return self.execution_strategy.is_available(self.tool_name)
+
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run Exiftool against a file.

@@ -14,6 +14,10 @@ class SherlockAdapter(ToolAdapter):
         self.execution_strategy = execution_strategy
         self.tool_name = "sherlock"
 
+    def can_run(self) -> bool:
+        """Check if Sherlock is available."""
+        return self.execution_strategy.is_available(self.tool_name)
+
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run Sherlock against a username.

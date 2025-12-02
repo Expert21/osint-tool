@@ -20,8 +20,6 @@ from src.core.resource_limiter import ResourceLimiter
 from src.orchestration.workflow_manager import WorkflowManager
 
 # Async Module Imports
-from src.modules.social_media import run_social_media_checks_async
-from src.modules.email_enumeration import run_email_enumeration_async
 from src.reporting.generator import generate_report
 from src.core.input_validator import InputValidator
 
@@ -47,7 +45,6 @@ async def main_async():
     parser.add_argument("--create-profiles", action="store_true", help="Create default configuration profiles")
     
     # Email Enumeration arguments
-    parser.add_argument("--email-enum", action="store_true", help="Enable email enumeration")
     parser.add_argument("--domain", help="Primary domain for email enumeration")
     parser.add_argument("--domains", nargs="+", help="Additional domains for email enumeration")
     
@@ -57,16 +54,13 @@ async def main_async():
     parser.add_argument("--email", help="Known email for verification context")
     
     # Optional flags
-    parser.add_argument("--passive", action="store_true", help="Enable passive mode (stealth mode - no direct target contact)")
-    parser.add_argument("--skip-social", action="store_true", help="Skip social media")
+    parser.add_argument("--stealth", action="store_true", help="Enable stealth mode (no direct target contact)")
     parser.add_argument("--no-progress", action="store_true", help="Disable progress indicators")
     parser.add_argument("--no-dedup", action="store_true", help="Disable deduplication")
     parser.add_argument("--workers", type=int, default=10, help="Number of concurrent workers (default: 10)")
     
     # Priority 2: Username Variations
-    parser.add_argument("--username-variations", action="store_true", help="Try username variations on social media")
-    parser.add_argument("--include-leet", action="store_true", help="Include leet speak variations")
-    parser.add_argument("--include-suffixes", action="store_true", help="Include number suffixes")
+    parser.add_argument("--variations", action="store_true", help="Try username variations on social media")
     
     # Priority 2: Cache Management
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached results")
@@ -232,8 +226,7 @@ async def main_async():
     results = {
         "target": args.target,
         "target_type": args.type,
-        "social_media": [],
-        "emails": []
+        "tool_results": {}
     }
     
     
@@ -251,71 +244,33 @@ async def main_async():
     workflow_manager = WorkflowManager(execution_mode=args.mode)
     
     try:
-        tasks = []
-        
-        # 0. Run External Tools (via WorkflowManager)
+        # Generate username variations if requested
+        username_variations = []
+        if args.variations and args.type == "individual":
+            logger.info("Generating username variations...")
+            # Default to including leet and suffixes if variations flag is on, as per user request "Default, all on"
+            username_variations = generate_username_variations(
+                args.target, 
+                include_leet=True, 
+                include_suffixes=True
+            )
+            logger.info(f"Generated {len(username_variations)} variations.")
+
+        # Run External Tools (via WorkflowManager)
         # This runs tools like Sherlock, TheHarvester, etc. based on target type
         logger.info(f"Running external tools in {args.mode} mode...")
+        
+        # Pass stealth mode and variations
         tool_results = workflow_manager.run_all_tools(
             target=args.target,
             target_type=args.type,
             domain=args.domain,
-            email=args.email
+            email=args.email,
+            stealth_mode=args.stealth,
+            username_variations=username_variations
         )
         results['tool_results'] = tool_results.get('tool_results', {})
         
-        # 1. Email Enumeration (Async)
-        if args.email_enum and config_dict.get('features', {}).get('email_enumeration', True):
-            logger.info("[Email Enumeration] Generating potential email addresses...")
-            email_future = await task_manager.submit(run_email_enumeration_async(
-                target_name=args.target,
-                domain=args.domain,
-                custom_domains=args.domains,
-                verify_mx=not args.passive,  # Skip MX verification in passive mode
-                passive_only=args.passive
-            ), priority=TaskPriority.NORMAL)
-            tasks.append(("email", email_future))
-
-        # 2. Social Media (Async)
-        if not args.skip_social:
-            logger.info("[Social Media] Queuing social media modules...")
-            
-            target_names = [args.target]
-            if args.username_variations:
-                variations = generate_username_variations(args.target, include_leet=args.include_leet, include_suffixes=args.include_suffixes)
-                target_names.extend(variations[:10])
-            
-            # Run social media checks for all username variations
-            for name in target_names:
-                social_future = await task_manager.submit(run_social_media_checks_async(
-                    name, args.type, config_dict, passive_only=args.passive
-                ), priority=TaskPriority.LOW)
-                tasks.append(("social", social_future))
-
-        # Wait for all async tasks to complete
-        if tasks:
-            logger.info(f"Executing {len(tasks)} async task groups...")
-            from rich.progress import Progress
-            with Progress() as progress:
-                task_id = progress.add_task("[cyan]Scanning...", total=len(tasks))
-                
-                # We need to await tasks but also update progress.
-                # Since we used gather, we can't easily update progress per task completion without as_completed
-                # For now, let's just await all.
-                await asyncio.gather(*[t[1] for t in tasks])
-                progress.update(task_id, completed=len(tasks))
-            
-            # Collect results
-            for task_type, task in tasks:
-                try:
-                    res = task.result()
-                    if task_type == "email":
-                        results['emails'] = res
-                    elif task_type == "social":
-                        results['social_media'].extend(res)
-                except Exception as e:
-                    logger.error(f"Task {task_type} failed: {e}")
-
     finally:
         # Cleanup
         await task_manager.stop()
@@ -325,9 +280,15 @@ async def main_async():
     if not args.no_dedup and config_dict.get('features', {}).get('deduplication', True):
         logger.info("\n[Deduplication] Processing results...")
         try:
+            # Extract social results from tool outputs for deduplication
+            # This logic might need adjustment based on new tool_results structure
+            social_results = []
+            if 'sherlock' in results['tool_results']:
+                 social_results.extend(results['tool_results']['sherlock'].get('results', []))
+            
             processed = deduplicate_and_correlate(
                 search_results=[],  # No search results anymore
-                social_results=results.get('social_media', [])
+                social_results=social_results
             )
             results['social_media'] = processed.get('social_media', [])
             results['connections'] = processed.get('connections', [])

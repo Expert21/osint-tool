@@ -12,6 +12,16 @@ class ToolAdapter(ABC):
     """
 
     @abstractmethod
+    def can_run(self) -> bool:
+        """
+        Check if the tool can run in the current environment.
+        
+        Returns:
+            True if the tool is available and configured correctly, False otherwise.
+        """
+        pass
+
+    @abstractmethod
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute the tool against the target.

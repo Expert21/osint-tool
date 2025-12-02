@@ -17,6 +17,10 @@ class TheHarvesterAdapter(ToolAdapter):
         self.execution_strategy = execution_strategy
         self.tool_name = "theharvester"
 
+    def can_run(self) -> bool:
+        """Check if TheHarvester is available."""
+        return self.execution_strategy.is_available(self.tool_name)
+
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run TheHarvester against a domain.

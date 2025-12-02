@@ -3,16 +3,17 @@ Hermes OSINT - V2.0 Alpha
 This project is currently in an alpha state.
 -->
 
-# Hermes OSINT 2.0 (Alpha)
+# Hermes OSINT 2.0.1 (Alpha)
 
-🚧 **STATUS: ALPHA RELEASE — NOT READY FOR CASUAL USE** 🚧
+🚧 **STATUS: ALPHA RELEASE — ACTIVE DEVELOPMENT** 🚧
 
-Hermes 2.0 is a complete rebuild of the Hermes OSINT framework with a focus on:
+Hermes 2.0.1 is a complete rebuild of the Hermes OSINT framework, shifting focus from native modules to a powerful **Orchestration Engine**.
 
-* Fully ephemeral execution of OSINT tools
-* Docker‑based isolation and security
-* Strong output handling and extraction
-* A more modular, extensible architecture
+**Key Features:**
+*   **Smart Defaults**: Automatically runs a "Deep Scan" using all available tools for the given target type.
+*   **Orchestration-First**: Manages external tools (Sherlock, TheHarvester, etc.) via Docker or Native execution.
+*   **Pre-flight Checks**: Automatically skips tools that are not installed or configured, ensuring a smooth run.
+*   **Ephemeral Execution**: Tools run in isolated containers (when using Docker mode) for security and cleanliness.
 
 This is **not** a stable release. Many features are implemented, but some tools, modules, and workflows are incomplete or partially broken. **Casual users should *not* rely on Hermes 2.0 Alpha for production investigations.**
 
@@ -98,18 +99,41 @@ docker --version
 
 ---
 
+## 🚀 Usage
+
+### Basic Scan
+Run a deep scan on a target. Hermes will automatically select and run applicable tools.
+
+```bash
+# Scan an individual (username)
+python main.py --target "jdoe" --type individual
+
+# Scan a company
+python main.py --target "example_corp" --type company --domain "example.com"
+```
+
+### Advanced Options
+
+```bash
+# Stealth Mode (No direct contact with target)
+python main.py --target "jdoe" --type individual --stealth
+
+# Username Variations (Try leet speak, suffixes, etc.)
+python main.py --target "jdoe" --type individual --variations
+
+# Run a specific tool only
+python main.py --target "jdoe" --type individual --tool sherlock
+
+# Execution Modes (docker, native, hybrid)
+python main.py --target "jdoe" --type individual --mode native
+```
+
 ## 📦 Installation (Alpha)
 
 ```bash
 git clone https://github.com/Expert21/hermes-osint
 cd hermes-osint
 pip install -r requirements.txt
-```
-
-Run Hermes:
-
-```bash
-python3 hermes.py
 ```
 
 ---

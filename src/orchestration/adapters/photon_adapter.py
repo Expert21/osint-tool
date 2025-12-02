@@ -15,6 +15,10 @@ class PhotonAdapter(ToolAdapter):
         self.execution_strategy = execution_strategy
         self.tool_name = "photon"
 
+    def can_run(self) -> bool:
+        """Check if Photon is available."""
+        return self.execution_strategy.is_available(self.tool_name)
+
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run Photon against a URL.

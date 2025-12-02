@@ -20,6 +20,10 @@ class H8MailAdapter(ToolAdapter):
         self.execution_strategy = execution_strategy
         self.tool_name = "h8mail"
 
+    def can_run(self) -> bool:
+        """Check if h8mail is available."""
+        return self.execution_strategy.is_available(self.tool_name)
+
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute h8mail against the target email.

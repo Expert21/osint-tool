@@ -21,6 +21,10 @@ class SubfinderAdapter(ToolAdapter):
         self.execution_strategy = execution_strategy
         self.tool_name = "subfinder"
 
+    def can_run(self) -> bool:
+        """Check if Subfinder is available."""
+        return self.execution_strategy.is_available(self.tool_name)
+
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run Subfinder against a domain.

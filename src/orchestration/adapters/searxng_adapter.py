@@ -31,6 +31,10 @@ class SearxngAdapter(ToolAdapter):
         self.base_url = f"http://localhost:{self.host_port}"
         self.is_running = False
 
+    def can_run(self) -> bool:
+        """Check if SearXNG can run (Docker available)."""
+        return self.docker_manager.is_available
+
     def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute search query using SearXNG.

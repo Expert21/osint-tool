@@ -22,6 +22,15 @@ class AsyncSocialMediaChecker:
         self.backoff_factor = 1.5
         self.initial_delay = 1.0
     
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit - ensure session cleanup."""
+        await self.request_manager.close()
+        return False
+    
     async def _check_profile_exists(self, url: str, platform: str, retries: int = 3) -> Optional[Dict[str, Any]]:
         """
         Check if a profile exists asynchronously with exponential backoff.
@@ -106,32 +115,32 @@ async def run_social_media_checks_async(
     Async entry point for social media checks.
     Only checks GitHub, Twitter/X, and Instagram.
     """
-    checker = AsyncSocialMediaChecker()
-    results = []
-    
-    logger.info(f"Starting social media enumeration for: {target}")
-    
-    # Only check our 3 stable platforms
-    platforms_config = {
-        "Twitter": ["https://twitter.com/{}", "https://x.com/{}"],
-        "Instagram": ["https://www.instagram.com/{}"],
-        "GitHub": ["https://github.com/{}"]
-    }
-    
-    tasks = []
-    
-    for platform, url_patterns in platforms_config.items():
-        for url_pattern in url_patterns:
-            url = url_pattern.format(target)
-            tasks.append(checker._check_profile_exists(url, platform))
-    
-    if tasks:
-        logger.info(f"Checking {len(tasks)} social media profiles...")
-        active_results = await asyncio.gather(*tasks)
+    async with AsyncSocialMediaChecker() as checker:
+        results = []
         
-        for res in active_results:
-            if res:
-                results.append(res)
-    
-    logger.info(f"Completed social media checks: {len(results)} profiles found")
-    return results
+        logger.info(f"Starting social media enumeration for: {target}")
+        
+        # Only check our 3 stable platforms
+        platforms_config = {
+            "Twitter": ["https://twitter.com/{}", "https://x.com/{}"],
+            "Instagram": ["https://www.instagram.com/{}"],
+            "GitHub": ["https://github.com/{}"]
+        }
+        
+        tasks = []
+        
+        for platform, url_patterns in platforms_config.items():
+            for url_pattern in url_patterns:
+                url = url_pattern.format(target)
+                tasks.append(checker._check_profile_exists(url, platform))
+        
+        if tasks:
+            logger.info(f"Checking {len(tasks)} social media profiles...")
+            active_results = await asyncio.gather(*tasks)
+            
+            for res in active_results:
+                if res:
+                    results.append(res)
+        
+        logger.info(f"Completed social media checks: {len(results)} profiles found")
+        return results

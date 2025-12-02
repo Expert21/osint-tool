@@ -83,7 +83,8 @@ class DockerExecutionStrategy(ExecutionStrategy):
         result = self.docker_manager.run_container(
             image_name=image_name,
             command=command,
-            environment=environment
+            environment=environment,
+            allow_network=True  # Enable network access for tools that need it
         )
         
         # Return only the logs string for compatibility with ExecutionStrategy interface

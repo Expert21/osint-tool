@@ -376,24 +376,15 @@ class DockerManager:
             if secopts:
                 run_kwargs["security_opt"] = run_kwargs.get("security_opt", []) + secopts
 
-            # If a network is created use it
+            # If ephemeral network was created, use it directly
             if allow_network and network_name:
-                # attach container to that network after creating it
-                # run container with network disabled first, then connect
-                run_kwargs["network_mode"] = "none"
+                # Attach container to the ephemeral network at startup
+                run_kwargs["network_mode"] = network_name
 
             logger.info(f"Starting container from {trusted_image} cmd={command}")
             container = self.client.containers.run(**run_kwargs)
             container_id = container.id[:12]
             logger.debug(f"Started container {container_id}")
-
-            # if we created a dedicated network, connect container to it now
-            if allow_network and network_name:
-                try:
-                    net = self.client.networks.get(network_name)
-                    net.connect(container)
-                except Exception as e:
-                    logger.warning(f"Failed to connect container to net {network_name}: {e}")
 
             # wait with timeout
             try:

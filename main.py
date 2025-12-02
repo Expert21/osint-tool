@@ -17,6 +17,7 @@ from src.core.proxy_manager import ProxyManager
 from src.core.secrets_manager import SecretsManager
 from src.core.task_manager import TaskManager, TaskPriority
 from src.core.resource_limiter import ResourceLimiter
+from src.orchestration.workflow_manager import WorkflowManager
 
 # Async Module Imports
 from src.modules.social_media import run_social_media_checks_async
@@ -246,8 +247,22 @@ async def main_async():
     task_manager = TaskManager(max_workers=args.workers)
     await task_manager.start()
     
+    # Initialize WorkflowManager for tool execution
+    workflow_manager = WorkflowManager(execution_mode=args.mode)
+    
     try:
         tasks = []
+        
+        # 0. Run External Tools (via WorkflowManager)
+        # This runs tools like Sherlock, TheHarvester, etc. based on target type
+        logger.info(f"Running external tools in {args.mode} mode...")
+        tool_results = workflow_manager.run_all_tools(
+            target=args.target,
+            target_type=args.type,
+            domain=args.domain,
+            email=args.email
+        )
+        results['tool_results'] = tool_results.get('tool_results', {})
         
         # 1. Email Enumeration (Async)
         if args.email_enum and config_dict.get('features', {}).get('email_enumeration', True):

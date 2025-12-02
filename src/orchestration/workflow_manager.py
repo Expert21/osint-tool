@@ -127,3 +127,93 @@ class WorkflowManager:
         logger.info(f"Starting step 1: Sherlock for {target}")
         sherlock_results = self.adapters["sherlock"].execute(target, {})
         results["steps"].append(sherlock_results)
+
+    def run_all_tools(self, target: str, target_type: str, domain: str = None, email: str = None, phone: str = None) -> Dict[str, Any]:
+        """
+        Run all applicable tools based on target type and provided inputs.
+        
+        Args:
+            target: Main target name (username or company name)
+            target_type: "individual" or "company"
+            domain: Optional domain (for company or email enum)
+            email: Optional email (for individual)
+            phone: Optional phone number (for individual)
+            
+        Returns:
+            Dictionary containing results from all tools
+        """
+        results = {
+            "target": target,
+            "target_type": target_type,
+            "tool_results": {}
+        }
+        
+        from src.core.input_validator import InputValidator
+
+        # Tools for Individuals
+        if target_type == "individual":
+            # Sherlock (Username)
+            try:
+                logger.info(f"Running Sherlock for {target}...")
+                results["tool_results"]["sherlock"] = self.adapters["sherlock"].execute(target, {})
+            except Exception as e:
+                logger.error(f"Sherlock failed: {e}")
+                results["tool_results"]["sherlock"] = {"error": str(e)}
+
+            # Holehe (Email)
+            if email:
+                try:
+                    logger.info(f"Running Holehe for {email}...")
+                    results["tool_results"]["holehe"] = self.adapters["holehe"].execute(email, {})
+                except Exception as e:
+                    logger.error(f"Holehe failed: {e}")
+                    results["tool_results"]["holehe"] = {"error": str(e)}
+            
+            # PhoneInfoga (Phone)
+            if phone:
+                try:
+                    logger.info(f"Running PhoneInfoga for {phone}...")
+                    results["tool_results"]["phoneinfoga"] = self.adapters["phoneinfoga"].execute(phone, {})
+                except Exception as e:
+                    logger.error(f"PhoneInfoga failed: {e}")
+                    results["tool_results"]["phoneinfoga"] = {"error": str(e)}
+
+        # Tools for Companies
+        elif target_type == "company":
+            # Determine domain
+            target_domain = domain
+            if not target_domain:
+                try:
+                    InputValidator.validate_domain(target)
+                    target_domain = target
+                except ValueError:
+                    pass
+            
+            if target_domain:
+                # TheHarvester
+                try:
+                    logger.info(f"Running TheHarvester for {target_domain}...")
+                    results["tool_results"]["theharvester"] = self.adapters["theharvester"].execute(target_domain, {})
+                except Exception as e:
+                    logger.error(f"TheHarvester failed: {e}")
+                    results["tool_results"]["theharvester"] = {"error": str(e)}
+                
+                # Subfinder
+                try:
+                    logger.info(f"Running Subfinder for {target_domain}...")
+                    results["tool_results"]["subfinder"] = self.adapters["subfinder"].execute(target_domain, {})
+                except Exception as e:
+                    logger.error(f"Subfinder failed: {e}")
+                    results["tool_results"]["subfinder"] = {"error": str(e)}
+                    
+                # Photon
+                try:
+                    logger.info(f"Running Photon for {target_domain}...")
+                    results["tool_results"]["photon"] = self.adapters["photon"].execute(target_domain, {})
+                except Exception as e:
+                    logger.error(f"Photon failed: {e}")
+                    results["tool_results"]["photon"] = {"error": str(e)}
+            else:
+                logger.warning("No valid domain provided for company tools (TheHarvester, Subfinder, Photon).")
+
+        return results

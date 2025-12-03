@@ -161,6 +161,7 @@ class WorkflowManager:
     ) -> Dict[str, Any]:
         """
         Run all applicable tools based on target type and provided inputs.
+        Implements "Smart Default" behavior by checking tool availability.
         """
         results = {
             "target": target,
@@ -175,65 +176,92 @@ class WorkflowManager:
             "stealth_mode": stealth_mode
         }
 
-        # Tools for Individuals
+        # Define tool lists
+        # Tuples of (tool_name, dependency_value)
+        # If dependency_value is None, it runs on the main target
+        individual_tools = [
+            ("sherlock", None),
+            ("holehe", email),
+            ("phoneinfoga", phone)
+        ]
+        
+        company_tools = [
+            ("theharvester", "domain"),
+            ("subfinder", "domain"),
+            ("photon", "domain")
+        ]
+
+        # Determine domain for company tools
+        target_domain = domain
+        if target_type == "company" and not target_domain:
+            try:
+                InputValidator.validate_domain(target)
+                target_domain = target
+            except ValueError:
+                pass
+
+        # Select tools based on type
+        tools_to_run = []
         if target_type == "individual":
-            # Sherlock (Username)
-            # Special handling for variations
-            if "sherlock" in self.adapters:
-                adapter = self.adapters["sherlock"]
-                if adapter.can_run():
-                    try:
-                        logger.info(f"Running Sherlock for {target}...")
-                        sherlock_res = adapter.execute(target, tool_config)
-                        
-                        # Variations check
-                        if username_variations:
-                            logger.info(f"Running Sherlock for {len(username_variations)} variations...")
-                            sherlock_res["variations"] = []
-                            for variant in username_variations:
-                                try:
-                                    var_res = adapter.execute(variant, tool_config)
-                                    if var_res.get("results"):
-                                        sherlock_res["variations"].append({
-                                            "variant": variant,
-                                            "results": var_res.get("results")
-                                        })
-                                except Exception as e:
-                                    logger.warning(f"Sherlock variation {variant} failed: {e}")
-                        
-                        results["tool_results"]["sherlock"] = sherlock_res
-                    except Exception as e:
-                        logger.error(f"Sherlock failed: {e}")
-                        results["tool_results"]["sherlock"] = {"error": str(e)}
-                else:
-                    logger.warning("Skipping Sherlock: Tool not available")
-                    results["tool_results"]["sherlock"] = {"skipped": True, "reason": "Not available"}
-
-            # Holehe (Email)
-            if email:
-                results["tool_results"]["holehe"] = self._run_tool("holehe", email, tool_config)
-            
-            # PhoneInfoga (Phone)
-            if phone:
-                results["tool_results"]["phoneinfoga"] = self._run_tool("phoneinfoga", phone, tool_config)
-
-        # Tools for Companies
+            tools_to_run = individual_tools
         elif target_type == "company":
-            # Determine domain
-            target_domain = domain
-            if not target_domain:
-                try:
-                    InputValidator.validate_domain(target)
-                    target_domain = target
-                except ValueError:
-                    pass
+            tools_to_run = company_tools
+
+        # Execute tools
+        for tool_name, dependency in tools_to_run:
+            # Determine execution target
+            exec_target = target
             
-            if target_domain:
-                # Company tools
-                company_tools = ["theharvester", "subfinder", "photon"]
-                for tool in company_tools:
-                    results["tool_results"][tool] = self._run_tool(tool, target_domain, tool_config)
+            # Handle dependencies
+            if dependency == "domain":
+                if not target_domain:
+                    continue # Skip if no domain
+                exec_target = target_domain
+            elif dependency is not None:
+                if not dependency:
+                    continue # Skip if dependency (email/phone) is missing
+                exec_target = dependency
+
+            # Special handling for Sherlock variations
+            if tool_name == "sherlock" and username_variations:
+                self._run_sherlock_with_variations(exec_target, tool_config, username_variations, results)
             else:
-                logger.warning("No valid domain provided for company tools.")
+                # Standard execution
+                results["tool_results"][tool_name] = self._run_tool(tool_name, exec_target, tool_config)
 
         return results
+
+    def _run_sherlock_with_variations(self, target: str, config: Dict[str, Any], variations: List[str], results: Dict[str, Any]):
+        """Helper to run Sherlock with variations."""
+        if "sherlock" not in self.adapters:
+            return
+
+        adapter = self.adapters["sherlock"]
+        if not adapter.can_run():
+            results["tool_results"]["sherlock"] = {"skipped": True, "reason": "Not available"}
+            return
+
+        try:
+            logger.info(f"Running Sherlock for {target}...")
+            sherlock_res = adapter.execute(target, config)
+            
+            # Variations check
+            if variations:
+                logger.info(f"Running Sherlock for {len(variations)} variations...")
+                sherlock_res["variations"] = []
+                for variant in variations:
+                    try:
+                        var_res = adapter.execute(variant, config)
+                        if var_res.get("results"):
+                            sherlock_res["variations"].append({
+                                "variant": variant,
+                                "results": var_res.get("results")
+                            })
+                    except Exception as e:
+                        logger.warning(f"Sherlock variation {variant} failed: {e}")
+            
+            results["tool_results"]["sherlock"] = sherlock_res
+        except Exception as e:
+            logger.error(f"Sherlock failed: {e}")
+            results["tool_results"]["sherlock"] = {"error": str(e)}
+

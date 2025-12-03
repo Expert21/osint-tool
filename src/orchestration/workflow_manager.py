@@ -21,6 +21,7 @@ from src.orchestration.adapters.subfinder_adapter import SubfinderAdapter
 from src.orchestration.adapters.searxng_adapter import SearxngAdapter
 from src.orchestration.adapters.photon_adapter import PhotonAdapter
 from src.orchestration.adapters.exiftool_adapter import ExiftoolAdapter
+from src.core.entities import ToolResult, Entity
 
 logger = logging.getLogger(__name__)
 
@@ -100,9 +101,10 @@ class WorkflowManager:
         # Step 1: theHarvester
         logger.info(f"Starting step 1: theHarvester for {target}")
         harvester_results = self.adapters["theharvester"].execute(target, {})
-        results["steps"].append(harvester_results)
+        results["steps"].append(harvester_results.to_dict())
         
-        emails = harvester_results.get("emails", [])
+        # Extract emails from entities
+        emails = [e.value for e in harvester_results.entities if e.type == "email"]
         logger.info(f"Found {len(emails)} emails")
         
         # Step 2: h8mail (for each email found)
@@ -111,7 +113,7 @@ class WorkflowManager:
         for email in emails:
             logger.info(f"Starting step 2: h8mail for {email}")
             h8_result = self.adapters["h8mail"].execute(email, {})
-            breach_results.append(h8_result)
+            breach_results.append(h8_result.to_dict())
             
         results["steps"].append({
             "tool": "h8mail_batch",
@@ -126,7 +128,7 @@ class WorkflowManager:
         # Step 1: Sherlock
         logger.info(f"Starting step 1: Sherlock for {target}")
         sherlock_results = self.adapters["sherlock"].execute(target, {})
-        results["steps"].append(sherlock_results)
+        results["steps"].append(sherlock_results.to_dict())
 
     def _run_tool(self, tool_name: str, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -144,7 +146,8 @@ class WorkflowManager:
             
         try:
             logger.info(f"Running {tool_name} for {target}...")
-            return adapter.execute(target, config)
+            result = adapter.execute(target, config)
+            return result.to_dict()
         except Exception as e:
             logger.error(f"{tool_name} failed: {e}")
             return {"error": str(e)}
@@ -244,23 +247,25 @@ class WorkflowManager:
         try:
             logger.info(f"Running Sherlock for {target}...")
             sherlock_res = adapter.execute(target, config)
+            sherlock_res_dict = sherlock_res.to_dict()
             
             # Variations check
             if variations:
                 logger.info(f"Running Sherlock for {len(variations)} variations...")
-                sherlock_res["variations"] = []
+                sherlock_res_dict["variations"] = []
                 for variant in variations:
                     try:
                         var_res = adapter.execute(variant, config)
-                        if var_res.get("results"):
-                            sherlock_res["variations"].append({
+                        # Check if entities exist
+                        if var_res.entities:
+                            sherlock_res_dict["variations"].append({
                                 "variant": variant,
-                                "results": var_res.get("results")
+                                "results": var_res.to_dict()
                             })
                     except Exception as e:
                         logger.warning(f"Sherlock variation {variant} failed: {e}")
             
-            results["tool_results"]["sherlock"] = sherlock_res
+            results["tool_results"]["sherlock"] = sherlock_res_dict
         except Exception as e:
             logger.error(f"Sherlock failed: {e}")
             results["tool_results"]["sherlock"] = {"error": str(e)}

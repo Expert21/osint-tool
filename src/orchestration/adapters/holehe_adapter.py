@@ -8,6 +8,7 @@ import re
 from src.orchestration.interfaces import ToolAdapter
 from src.orchestration.execution_strategy import ExecutionStrategy
 from src.core.input_validator import InputValidator
+from src.core.entities import ToolResult, Entity
 
 class HoleheAdapter(ToolAdapter):
     def __init__(self, execution_strategy: ExecutionStrategy):
@@ -18,7 +19,7 @@ class HoleheAdapter(ToolAdapter):
         """Check if Holehe is available."""
         return self.execution_strategy.is_available(self.tool_name)
 
-    def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, target: str, config: Dict[str, Any]) -> ToolResult:
         """
         Run Holehe against an email.
         
@@ -27,7 +28,7 @@ class HoleheAdapter(ToolAdapter):
             config: Configuration dictionary
             
         Returns:
-            Parsed results from Holehe
+            ToolResult containing the structured findings
         """
         # SECURITY: Validate email
         try:
@@ -41,15 +42,24 @@ class HoleheAdapter(ToolAdapter):
         output = self.execution_strategy.execute(self.tool_name, command, config)
         return self.parse_results(output)
 
-    def parse_results(self, output: str) -> Dict[str, Any]:
+    def parse_results(self, output: str) -> ToolResult:
         """
         Parse Holehe output.
         """
-        results = []
+        entities = []
         for line in output.splitlines():
             if "[+]" in line:
                 # Format: [+] Service
                 service = line.replace("[+]", "").strip()
-                results.append({"service": service, "status": "used"})
+                entities.append(Entity(
+                    type="account",
+                    value=service, # Value is the service name where the email is used
+                    source="holehe",
+                    metadata={"status": "used"}
+                ))
         
-        return {"tool": "holehe", "results": results, "raw_output": output}
+        return ToolResult(
+            tool="holehe",
+            entities=entities,
+            raw_output=output
+        )

@@ -5,6 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any
+from src.core.entities import ToolResult
 
 class ToolAdapter(ABC):
     """
@@ -22,7 +23,7 @@ class ToolAdapter(ABC):
         pass
 
     @abstractmethod
-    def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, target: str, config: Dict[str, Any]) -> ToolResult:
         """
         Execute the tool against the target.
         
@@ -31,12 +32,12 @@ class ToolAdapter(ABC):
             config: Configuration dictionary for the tool
             
         Returns:
-            Dict containing the raw results and metadata
+            ToolResult containing the structured findings
         """
         pass
 
     @abstractmethod
-    def parse_results(self, output: str) -> Dict[str, Any]:
+    def parse_results(self, output: str) -> ToolResult:
         """
         Parse the raw output from the tool into a structured format.
         
@@ -44,6 +45,6 @@ class ToolAdapter(ABC):
             output: Raw string output from the tool (stdout/stderr)
             
         Returns:
-            Structured dictionary of findings
+            ToolResult containing the structured findings
         """
         pass

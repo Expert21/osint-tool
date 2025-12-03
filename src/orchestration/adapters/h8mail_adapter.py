@@ -8,6 +8,7 @@ import json
 import logging
 from src.orchestration.interfaces import ToolAdapter
 from src.orchestration.execution_strategy import ExecutionStrategy
+from src.core.entities import ToolResult, Entity
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class H8MailAdapter(ToolAdapter):
         """Check if h8mail is available."""
         return self.execution_strategy.is_available(self.tool_name)
 
-    def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, target: str, config: Dict[str, Any]) -> ToolResult:
         """
         Execute h8mail against the target email.
         
@@ -33,7 +34,7 @@ class H8MailAdapter(ToolAdapter):
             config: Configuration dictionary (e.g., API keys)
             
         Returns:
-            Dict containing the raw results and metadata
+            ToolResult containing the structured findings
         """
         # Construct command
         # -t: target
@@ -54,17 +55,13 @@ class H8MailAdapter(ToolAdapter):
             
         except Exception as e:
             logger.error(f"h8mail execution failed: {e}")
-            return {"error": str(e), "tool": "h8mail"}
+            return ToolResult(tool="h8mail", error=str(e))
 
-    def parse_results(self, output: str) -> Dict[str, Any]:
+    def parse_results(self, output: str) -> ToolResult:
         """
         Parse h8mail output.
         """
-        results = {
-            "tool": "h8mail",
-            "breaches": [],
-            "raw_output": output
-        }
+        entities = []
         
         try:
             # h8mail with --json might output multiple JSON objects or a list
@@ -78,11 +75,33 @@ class H8MailAdapter(ToolAdapter):
                         data = json.loads(line)
                         # Check if it looks like a breach result
                         if "target" in data and "breach" in data:
-                             results["breaches"].append(data)
+                             # data["breach"] can be a list or string depending on h8mail version/plugin
+                             # Assuming it's a list of breach names or objects
+                             breaches = data.get("breach", [])
+                             if isinstance(breaches, list):
+                                 for breach in breaches:
+                                     entities.append(Entity(
+                                         type="breach",
+                                         value=str(breach),
+                                         source="h8mail",
+                                         metadata=data
+                                     ))
+                             else:
+                                 entities.append(Entity(
+                                     type="breach",
+                                     value=str(breaches),
+                                     source="h8mail",
+                                     metadata=data
+                                 ))
+
                     except json.JSONDecodeError:
                         continue
                         
         except Exception as e:
             logger.warning(f"Failed to parse h8mail output: {e}")
             
-        return results
+        return ToolResult(
+            tool="h8mail",
+            entities=entities,
+            raw_output=output
+        )

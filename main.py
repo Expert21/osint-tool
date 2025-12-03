@@ -281,16 +281,51 @@ async def main_async():
         logger.info("\n[Deduplication] Processing results...")
         try:
             # Extract social results from tool outputs for deduplication
-            # This logic might need adjustment based on new tool_results structure
             social_results = []
-            if 'sherlock' in results['tool_results']:
-                 social_results.extend(results['tool_results']['sherlock'].get('results', []))
+            search_results = []
+            
+            # Iterate over all tool results
+            for tool_name, tool_result in results['tool_results'].items():
+                # Handle variations (Sherlock)
+                if 'variations' in tool_result:
+                    for variation in tool_result['variations']:
+                        if 'results' in variation and 'entities' in variation['results']:
+                             for entity in variation['results']['entities']:
+                                if entity['type'] == 'account':
+                                    social_results.append({
+                                        'platform': entity['metadata'].get('service', tool_name),
+                                        'username': variation['variant'],
+                                        'url': entity['value'],
+                                        'status': 'found',
+                                        'source': entity['source']
+                                    })
+
+                # Handle standard results
+                if 'entities' in tool_result:
+                    for entity in tool_result['entities']:
+                        if entity['type'] == 'account':
+                            social_results.append({
+                                'platform': entity['metadata'].get('service', tool_name),
+                                'username': args.target, # Best guess for username
+                                'url': entity['value'],
+                                'status': 'found',
+                                'source': entity['source']
+                            })
+                        elif entity['type'] in ['url', 'domain']:
+                            # Map to search result format
+                            search_results.append({
+                                'source': entity['source'],
+                                'title': entity['metadata'].get('title', entity['value']),
+                                'url': entity['value'],
+                                'description': entity['metadata'].get('content', '') or entity['metadata'].get('source', '')
+                            })
             
             processed = deduplicate_and_correlate(
-                search_results=[],  # No search results anymore
+                search_results=search_results,
                 social_results=social_results
             )
             results['social_media'] = processed.get('social_media', [])
+            results['search_engines'] = processed.get('search_engines', [])
             results['connections'] = processed.get('connections', [])
             results['statistics'] = processed.get('statistics', {})
         except Exception as e:

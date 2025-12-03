@@ -8,6 +8,7 @@ import logging
 from src.orchestration.interfaces import ToolAdapter
 from src.orchestration.execution_strategy import ExecutionStrategy
 from src.core.input_validator import InputValidator
+from src.core.entities import ToolResult, Entity
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class SubfinderAdapter(ToolAdapter):
         """Check if Subfinder is available."""
         return self.execution_strategy.is_available(self.tool_name)
 
-    def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, target: str, config: Dict[str, Any]) -> ToolResult:
         """
         Run Subfinder against a domain.
         
@@ -34,7 +35,7 @@ class SubfinderAdapter(ToolAdapter):
             config: Configuration dictionary
             
         Returns:
-            Parsed results from Subfinder
+            ToolResult containing the structured findings
         """
         # SECURITY: Validate domain
         try:
@@ -63,66 +64,68 @@ class SubfinderAdapter(ToolAdapter):
         try:
             logger.info(f"Executing subfinder for domain: {sanitized_target}")
             output = self.execution_strategy.execute(self.tool_name, command, config)
-            return self.parse_results(output, config.get("json_output", True))
+            return self.parse_results(output) # json_output is handled inside parse_results logic or we assume True
         except Exception as e:
             logger.error(f"Subfinder execution failed: {e}")
-            return {"error": str(e), "tool": "subfinder"}
+            return ToolResult(tool="subfinder", error=str(e))
 
-    def parse_results(self, output: str, json_output: bool = True) -> Dict[str, Any]:
+    def parse_results(self, output: str) -> ToolResult:
         """
         Parse Subfinder output.
         
         Args:
             output: Raw output from subfinder
-            json_output: Whether output is in JSON format
         """
-        results = {
-            "tool": "subfinder",
-            "subdomains": [],
-            "raw_output": output[:10000]  # Limit raw output to 10KB
-        }
+        entities = []
         
         try:
-            if json_output:
-                # Parse JSON output (one JSON object per line)
-                import json
-                for line in output.splitlines():
-                    line = line.strip()
-                    if line.startswith("{") and line.endswith("}"):
-                        try:
-                            data = json.loads(line)
-                            # Subfinder JSON format: {"host": "subdomain.example.com", "source": "..."}
-                            if "host" in data:
-                                results["subdomains"].append({
-                                    "subdomain": data["host"],
-                                    "source": data.get("source", "unknown")
-                                })
-                        except json.JSONDecodeError:
-                            continue
-            else:
-                # Parse plain text output (one subdomain per line)
-                for line in output.splitlines():
+            # Try parsing as JSON first (default)
+            # Parse JSON output (one JSON object per line)
+            import json
+            for line in output.splitlines():
+                line = line.strip()
+                if line.startswith("{") and line.endswith("}"):
+                    try:
+                        data = json.loads(line)
+                        # Subfinder JSON format: {"host": "subdomain.example.com", "source": "..."}
+                        if "host" in data:
+                            entities.append(Entity(
+                                type="domain",
+                                value=data["host"],
+                                source="subfinder",
+                                metadata={"source": data.get("source", "unknown")}
+                            ))
+                    except json.JSONDecodeError:
+                        continue
+            
+            # If no entities found, try parsing as plain text (fallback)
+            if not entities:
+                 for line in output.splitlines():
                     line = line.strip()
                     # Filter out empty lines and potential error messages
-                    if line and not line.startswith("[") and "." in line:
-                        results["subdomains"].append({
-                            "subdomain": line,
-                            "source": "unknown"
-                        })
+                    if line and not line.startswith("[") and "." in line and not line.startswith("{"):
+                        entities.append(Entity(
+                            type="domain",
+                            value=line,
+                            source="subfinder",
+                            metadata={"source": "unknown"}
+                        ))
             
-            # Deduplicate subdomains
+            # Deduplicate entities based on value
             seen = set()
-            unique_subdomains = []
-            for item in results["subdomains"]:
-                subdomain = item["subdomain"]
-                if subdomain not in seen:
-                    seen.add(subdomain)
-                    unique_subdomains.append(item)
+            unique_entities = []
+            for entity in entities:
+                if entity.value not in seen:
+                    seen.add(entity.value)
+                    unique_entities.append(entity)
             
-            results["subdomains"] = unique_subdomains
-            results["count"] = len(unique_subdomains)
+            entities = unique_entities
             
         except Exception as e:
             logger.warning(f"Failed to parse subfinder output: {e}")
         
-        return results
+        return ToolResult(
+            tool="subfinder",
+            entities=entities,
+            raw_output=output[:10000]  # Limit raw output to 10KB
+        )

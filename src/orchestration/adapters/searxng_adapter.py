@@ -11,6 +11,7 @@ import requests
 from src.orchestration.interfaces import ToolAdapter
 from src.orchestration.docker_manager import DockerManager
 from src.core.input_validator import InputValidator
+from src.core.entities import ToolResult, Entity
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class SearxngAdapter(ToolAdapter):
         """Check if SearXNG can run (Docker available)."""
         return self.docker_manager.is_available
 
-    def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, target: str, config: Dict[str, Any]) -> ToolResult:
         """
         Execute search query using SearXNG.
         
@@ -44,7 +45,7 @@ class SearxngAdapter(ToolAdapter):
             config: Configuration dictionary
             
         Returns:
-            Dict containing search results
+            ToolResult containing search results
         """
         # SECURITY: Validate and sanitize search query
         try:
@@ -62,11 +63,7 @@ class SearxngAdapter(ToolAdapter):
             if not self.is_running:
                 logger.info("Starting SearXNG service...")
                 if not self.start_service(config):
-                    return {
-                        "tool": "searxng",
-                        "error": "Failed to start SearXNG service",
-                        "results": []
-                    }
+                    return ToolResult(tool="searxng", error="Failed to start SearXNG service")
             
             # Query the API
             logger.info(f"Executing SearXNG search for: {sanitized_query}")
@@ -76,7 +73,7 @@ class SearxngAdapter(ToolAdapter):
             
         except Exception as e:
             logger.error(f"SearXNG execution failed: {e}")
-            return {"error": str(e), "tool": "searxng", "results": []}
+            return ToolResult(tool="searxng", error=str(e))
         finally:
             # Optionally stop service after query (for ephemeral usage)
             if config.get("ephemeral", True):
@@ -178,7 +175,7 @@ class SearxngAdapter(ToolAdapter):
         
         return True
 
-    def query_api(self, query: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def query_api(self, query: str, config: Dict[str, Any]) -> ToolResult:
         """
         Query the SearXNG API.
         
@@ -226,15 +223,15 @@ class SearxngAdapter(ToolAdapter):
             
         except requests.exceptions.Timeout:
             logger.error("SearXNG API request timed out")
-            return {"error": "Request timed out", "tool": "searxng", "results": []}
+            return ToolResult(tool="searxng", error="Request timed out")
         except requests.exceptions.RequestException as e:
             logger.error(f"SearXNG API request failed: {e}")
-            return {"error": str(e), "tool": "searxng", "results": []}
+            return ToolResult(tool="searxng", error=str(e))
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse SearXNG JSON response: {e}")
-            return {"error": "Invalid JSON response", "tool": "searxng", "results": []}
+            return ToolResult(tool="searxng", error="Invalid JSON response")
 
-    def parse_results(self, data: Dict[str, Any], query: str) -> Dict[str, Any]:
+    def parse_results(self, data: Dict[str, Any], query: str) -> ToolResult:
         """
         Parse SearXNG API response.
         
@@ -242,47 +239,52 @@ class SearxngAdapter(ToolAdapter):
             data: JSON response from SearXNG API
             query: Original search query
         """
-        results = {
-            "tool": "searxng",
+        entities = []
+        metadata = {
             "query": query,
-            "search_results": [],
             "suggestions": [],
-            "number_of_results": 0,
+            "number_of_results": 0
         }
         
         try:
             # Extract search results
             if "results" in data:
                 for result in data["results"]:
-                    results["search_results"].append({
-                        "title": result.get("title", ""),
-                        "url": result.get("url", ""),
-                        "content": result.get("content", ""),
-                        "engine": result.get("engine", "unknown"),
-                        "score": result.get("score", 0),
-                        "category": result.get("category", "general"),
-                    })
+                    entities.append(Entity(
+                        type="url",
+                        value=result.get("url", ""),
+                        source="searxng",
+                        metadata={
+                            "title": result.get("title", ""),
+                            "content": result.get("content", ""),
+                            "engine": result.get("engine", "unknown"),
+                            "score": result.get("score", 0),
+                            "category": result.get("category", "general"),
+                        }
+                    ))
             
             # Extract suggestions if available
             if "suggestions" in data:
-                results["suggestions"] = data["suggestions"]
+                metadata["suggestions"] = data["suggestions"]
             
             # Extract metadata
-            results["number_of_results"] = data.get("number_of_results", len(results["search_results"]))
+            metadata["number_of_results"] = data.get("number_of_results", len(entities))
             
             # Limit results to prevent excessive data
             max_results = 100
-            if len(results["search_results"]) > max_results:
-                logger.info(f"Limiting results from {len(results['search_results'])} to {max_results}")
-                results["search_results"] = results["search_results"][:max_results]
-            
-            results["count"] = len(results["search_results"])
+            if len(entities) > max_results:
+                logger.info(f"Limiting results from {len(entities)} to {max_results}")
+                entities = entities[:max_results]
             
         except Exception as e:
             logger.warning(f"Failed to parse SearXNG results: {e}")
-            results["error"] = f"Parsing error: {str(e)}"
+            return ToolResult(tool="searxng", error=f"Parsing error: {str(e)}")
         
-        return results
+        return ToolResult(
+            tool="searxng",
+            entities=entities,
+            metadata=metadata
+        )
 
     def __del__(self):
         """Cleanup: ensure container is stopped when adapter is destroyed."""

@@ -9,6 +9,7 @@ import logging
 from src.orchestration.interfaces import ToolAdapter
 from src.orchestration.execution_strategy import ExecutionStrategy
 from src.core.input_validator import InputValidator
+from src.core.entities import ToolResult, Entity
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class TheHarvesterAdapter(ToolAdapter):
         """Check if TheHarvester is available."""
         return self.execution_strategy.is_available(self.tool_name)
 
-    def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, target: str, config: Dict[str, Any]) -> ToolResult:
         """
         Run TheHarvester against a domain.
         
@@ -30,7 +31,7 @@ class TheHarvesterAdapter(ToolAdapter):
             config: Configuration dictionary
             
         Returns:
-            Parsed results from TheHarvester
+            ToolResult containing the structured findings
         """
         # SECURITY: Validate domain to prevent command injection
         try:
@@ -49,14 +50,13 @@ class TheHarvesterAdapter(ToolAdapter):
         output = self.execution_strategy.execute(self.tool_name, command, config)
         return self.parse_results(output)
 
-    def parse_results(self, output: str) -> Dict[str, Any]:
+    def parse_results(self, output: str) -> ToolResult:
         """
         Parse TheHarvester output.
         
         SECURITY: Protects against ReDoS by limiting output size before regex processing.
         """
-        emails = []
-        hosts = []
+        entities = []
         
         # SECURITY: Limit output size to prevent ReDoS attacks
         MAX_OUTPUT_SIZE = 1 * 1024 * 1024  # 1MB
@@ -69,17 +69,23 @@ class TheHarvesterAdapter(ToolAdapter):
         try:
             # Use finditer with limit to prevent excessive memory usage
             email_matches = re.finditer(email_pattern, output)
-            emails = list(set([match.group() for match in email_matches]))[:1000]  # Limit to 1000 emails
+            found_emails = list(set([match.group() for match in email_matches]))[:1000]  # Limit to 1000 emails
+            
+            for email in found_emails:
+                entities.append(Entity(
+                    type="email",
+                    value=email,
+                    source="theharvester"
+                ))
+                
         except Exception as e:
             logger.error(f"Error parsing emails: {e}")
-            emails = []
         
         # Basic host parsing (this might need refinement based on actual output)
         # TheHarvester output varies by source, but often lists "IP: Host" or just hosts
         
-        return {
-            "tool": "theharvester", 
-            "emails": emails, 
-            "hosts": hosts,  # Placeholder for better host parsing
-            "raw_output": output[:10000]  # Only include first 10KB of raw output in results
-        }
+        return ToolResult(
+            tool="theharvester",
+            entities=entities,
+            raw_output=output[:10000]  # Only include first 10KB of raw output in results
+        )

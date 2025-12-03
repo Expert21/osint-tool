@@ -8,6 +8,7 @@ import re
 from src.orchestration.interfaces import ToolAdapter
 from src.orchestration.execution_strategy import ExecutionStrategy
 from src.core.input_validator import InputValidator
+from src.core.entities import ToolResult, Entity
 
 class SherlockAdapter(ToolAdapter):
     def __init__(self, execution_strategy: ExecutionStrategy):
@@ -18,7 +19,7 @@ class SherlockAdapter(ToolAdapter):
         """Check if Sherlock is available."""
         return self.execution_strategy.is_available(self.tool_name)
 
-    def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, target: str, config: Dict[str, Any]) -> ToolResult:
         """
         Run Sherlock against a username.
         
@@ -27,7 +28,7 @@ class SherlockAdapter(ToolAdapter):
             config: Configuration dictionary
             
         Returns:
-            Parsed results from Sherlock
+            ToolResult containing the structured findings
         """
         # SECURITY: Validate and sanitize username to prevent command injection
         try:
@@ -40,12 +41,12 @@ class SherlockAdapter(ToolAdapter):
         output = self.execution_strategy.execute(self.tool_name, command, config)
         return self.parse_results(output)
 
-    def parse_results(self, output: str) -> Dict[str, Any]:
+    def parse_results(self, output: str) -> ToolResult:
         """
         Parse Sherlock output.
         Look for lines starting with '[+]'.
         """
-        results = []
+        entities = []
         for line in output.splitlines():
             if "[+]" in line:
                 # Format: [+] Service: URL
@@ -53,6 +54,21 @@ class SherlockAdapter(ToolAdapter):
                 if len(parts) == 2:
                     service = parts[0].replace("[+]", "").strip()
                     url = parts[1].strip()
-                    results.append({"service": service, "url": url})
+                    
+                    # Create Entity for each found account
+                    entity = Entity(
+                        type="account",
+                        value=url,
+                        source="sherlock",
+                        metadata={
+                            "service": service,
+                            "url": url
+                        }
+                    )
+                    entities.append(entity)
         
-        return {"tool": "sherlock", "results": results, "raw_output": output}
+        return ToolResult(
+            tool="sherlock",
+            entities=entities,
+            raw_output=output
+        )

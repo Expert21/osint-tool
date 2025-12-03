@@ -8,6 +8,7 @@ from src.orchestration.interfaces import ToolAdapter
 from src.orchestration.execution_strategy import ExecutionStrategy
 from src.core.input_validator import InputValidator
 from src.core.url_validator import URLValidator
+from src.core.entities import ToolResult, Entity
 
 
 class PhotonAdapter(ToolAdapter):
@@ -19,7 +20,7 @@ class PhotonAdapter(ToolAdapter):
         """Check if Photon is available."""
         return self.execution_strategy.is_available(self.tool_name)
 
-    def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, target: str, config: Dict[str, Any]) -> ToolResult:
         """
         Run Photon against a URL.
         
@@ -28,7 +29,7 @@ class PhotonAdapter(ToolAdapter):
             config: Configuration dictionary
             
         Returns:
-            Parsed results from Photon
+            ToolResult containing the structured findings
         """
         # SECURITY: Basic validation
         if not URLValidator.is_safe_url(target):
@@ -40,15 +41,23 @@ class PhotonAdapter(ToolAdapter):
         output = self.execution_strategy.execute(self.tool_name, command, config)
         return self.parse_results(output)
 
-    def parse_results(self, output: str) -> Dict[str, Any]:
+    def parse_results(self, output: str) -> ToolResult:
         """
         Parse Photon output.
         """
         # Photon saves to files, but also prints to stdout
         # We'll capture stdout for now
-        urls = []
+        entities = []
         for line in output.splitlines():
             if line.startswith("http"):
-                urls.append(line.strip())
+                entities.append(Entity(
+                    type="url",
+                    value=line.strip(),
+                    source="photon"
+                ))
                 
-        return {"tool": "photon", "results": urls, "raw_output": output}
+        return ToolResult(
+            tool="photon",
+            entities=entities,
+            raw_output=output
+        )

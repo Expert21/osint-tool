@@ -8,6 +8,7 @@ import json
 from src.orchestration.interfaces import ToolAdapter
 from src.orchestration.execution_strategy import ExecutionStrategy
 from src.core.input_validator import InputValidator
+from src.core.entities import ToolResult, Entity
 
 class ExiftoolAdapter(ToolAdapter):
     def __init__(self, execution_strategy: ExecutionStrategy):
@@ -18,7 +19,7 @@ class ExiftoolAdapter(ToolAdapter):
         """Check if Exiftool is available."""
         return self.execution_strategy.is_available(self.tool_name)
 
-    def execute(self, target: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, target: str, config: Dict[str, Any]) -> ToolResult:
         """
         Run Exiftool against a file.
         
@@ -27,7 +28,7 @@ class ExiftoolAdapter(ToolAdapter):
             config: Configuration dictionary
             
         Returns:
-            Parsed results from Exiftool
+            ToolResult containing the structured findings
         """
         # SECURITY: Validate file path
         # In Docker mode, we need to handle file mounting.
@@ -40,15 +41,25 @@ class ExiftoolAdapter(ToolAdapter):
         output = self.execution_strategy.execute(self.tool_name, command, config)
         return self.parse_results(output)
 
-    def parse_results(self, output: str) -> Dict[str, Any]:
+    def parse_results(self, output: str) -> ToolResult:
         """
         Parse Exiftool JSON output.
         """
+        entities = []
         try:
             # Exiftool -json outputs a JSON array
             data = json.loads(output)
             if isinstance(data, list) and len(data) > 0:
-                return {"tool": "exiftool", "results": data[0], "raw_output": output}
-            return {"tool": "exiftool", "results": {}, "raw_output": output}
+                # Create a single entity for the file metadata
+                entities.append(Entity(
+                    type="metadata",
+                    value="file_metadata",
+                    source="exiftool",
+                    metadata=data[0]
+                ))
+                return ToolResult(tool="exiftool", entities=entities, raw_output=output)
+            
+            return ToolResult(tool="exiftool", entities=[], raw_output=output)
+            
         except json.JSONDecodeError:
-            return {"tool": "exiftool", "results": {}, "error": "Failed to parse JSON", "raw_output": output}
+            return ToolResult(tool="exiftool", error="Failed to parse JSON", raw_output=output)

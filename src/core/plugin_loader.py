@@ -148,15 +148,19 @@ class PluginLoader:
             # For built-ins: "src.plugins.sherlock.adapter.SherlockAdapter"
             # For user plugins: We might need to add the folder to sys.path
             
-            if str(plugin_path).startswith(str(Path.home())):
-                # User plugin
+            # Check if this is a user plugin (in ~/.hermes/plugins/)
+            user_plugins_dir = Path.home() / ".hermes" / "plugins"
+            is_user_plugin = str(plugin_path).startswith(str(user_plugins_dir))
+            
+            if is_user_plugin:
+                # User plugin - add to path and import relatively
                 if str(plugin_path.parent) not in sys.path:
                     sys.path.append(str(plugin_path.parent))
                 
                 # Now we can import "plugin_dir_name.adapter"
                 module_path = f"{plugin_path.name}.adapter"
             else:
-                # Built-in
+                # Built-in plugin (in src/plugins/)
                 module_path = f"src.plugins.{plugin_path.name}.adapter"
 
             module = importlib.import_module(module_path)

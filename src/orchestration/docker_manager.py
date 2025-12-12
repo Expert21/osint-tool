@@ -35,9 +35,6 @@ class DockerManager:
     "projectdiscovery/subfinder":"projectdiscovery/subfinder@sha256:70d8fa85be31de07d4aee7f7058effb83f9e5322154417c4267fddb6a4d79d99",
     "ghcr.io/laramies/theharvester:sha-97e89aa":"ghcr.io/laramies/theharvester@sha256:e7cf8c6cceac1e2a12836578c9a29c835cfd8eb0a6bd9c069895d43f3cc77b66",
     "sundowndev/phoneinfoga":"sundowndev/phoneinfoga@sha256:0706f55ef1eeae1352ea4f48f57a3490c8ea87ac055aa6d4491f72405c36e445",
-    "ghcr.io/expert21/hermes-holehe":"ghcr.io/expert21/hermes-holehe@sha256:b5fd6e2de5685a2b532dc7a2e2e11ec8530f9b10852e02f5893ae6850bbfdf74",
-    # Untrusted Images are below - Replace images with trusted images/custom images
-    "ai2ys/exiftool":"ai2ys/exiftool@sha256:8a4e5be8cba9b234518c1b53c6645e8857508e684849564ab81b5bac1f6b5a48"
     }
 
     # SECURITY: Whitelist for environment variables

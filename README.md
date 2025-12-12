@@ -3,7 +3,7 @@
 > **Universal OSINT Orchestration Platform**  
 > One command. Every tool. Clean results. 💪✨
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/Expert21/hermes-osint/releases)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/Expert21/hermes-osint/releases)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker Required](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)

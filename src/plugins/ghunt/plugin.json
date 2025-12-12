@@ -1,0 +1,15 @@
+{
+    "name": "ghunt",
+    "version": "1.0.0",
+    "plugin_type": "tool",
+    "adapter_class": "src.plugins.ghunt.adapter.GhuntAdapter",
+    "tool_name": "ghunt",
+    "docker_image": null,
+    "description": "Google Account Investigation Tool",
+    "author": "mxrch",
+    "requires_credentials": [],
+    "supported_modes": [
+        "native"
+    ],
+    "capabilities": {}
+}

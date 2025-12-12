@@ -9,7 +9,7 @@ with open(readme_path, "r", encoding="utf-8") as fh:
 
 setup(
     name="Hermes",
-    version="2.0.0",
+    version="2.1.0",
     author="Isaiah Myles (Expert21)",
     author_email="isaiahmyles04@gmail.com",
     description="Universal OSINT Orchestration Platform - Integrate and automate best-in-class intelligence tools",

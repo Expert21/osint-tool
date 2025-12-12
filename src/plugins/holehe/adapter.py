@@ -56,6 +56,7 @@ class HoleheAdapter(ToolAdapter):
         Parse Holehe output.
         """
         entities = []
+            
         for line in output.splitlines():
             if "[+]" in line:
                 # Format: [+] Service

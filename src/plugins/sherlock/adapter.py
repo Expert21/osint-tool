@@ -45,7 +45,9 @@ class SherlockAdapter(ToolAdapter):
             raise ValueError(f"Invalid target username: {e}")
         
         # Use list format to prevent shell injection
-        command = [sanitized_target, "--print-found"]
+        # Add --output to a writable directory (/tmp) to prevent PermissionError in Docker
+        # Sherlock prints to stdout as well, which is what we parse.
+        command = [sanitized_target, "--print-found", "--output", f"/tmp/{sanitized_target}.txt"]
         output = self.execution_strategy.execute(self.tool_name, command, config)
         return self.parse_results(output)
 

@@ -120,21 +120,30 @@ class WorkflowManager:
         """
         if tool_name not in self.adapters:
             logger.warning(f"Tool {tool_name} not found in adapters.")
-            return {"error": "Tool not found"}
+            return {"error": f"Tool '{tool_name}' is not a registered plugin. Check plugin installation."}
             
         adapter = self.adapters[tool_name]
         
         if not adapter.can_run():
-            logger.warning(f"Skipping {tool_name}: Tool not available (check installation/docker)")
-            return {"skipped": True, "reason": "Not available"}
+            # Determine execution mode for a more helpful message
+            mode_name = type(self.execution_strategy).__name__.replace("ExecutionStrategy", "").lower()
+            if not mode_name:
+                mode_name = "current"
+            logger.warning(f"Skipping {tool_name}: Not available in {mode_name} mode")
+            return {
+                "skipped": True, 
+                "reason": f"Tool '{tool_name}' not available in {mode_name} mode. "
+                          f"Run 'hermes --doctor' for installation instructions."
+            }
             
         try:
             logger.info(f"Running {tool_name} for {target}...")
             result = adapter.execute(target, config)
             return result.to_dict()
         except Exception as e:
-            logger.error(f"{tool_name} failed: {e}")
-            return {"error": str(e)}
+            error_msg = str(e)
+            logger.error(f"{tool_name} failed: {error_msg}")
+            return {"error": error_msg}
 
     def run_all_tools(
         self, 
@@ -165,14 +174,14 @@ class WorkflowManager:
         }
 
         # Define tool lists
-        # Tuples of (tool_name, dependency_value)
-        # If dependency_value is None, it runs on the main target
+        # Tuples of (tool_name, dependency_type)
+        # dependency_type: "email", "phone", "file", "domain", or None (main target)
         individual_tools = [
             ("sherlock", None),
-            ("holehe", email),
-            ("h8mail", email),
-            ("phoneinfoga", phone),
-            ("exiftool", file)
+            ("holehe", "email"),
+            ("h8mail", "email"),
+            ("phoneinfoga", "phone"),
+            ("ghunt", "email")
         ]
         
         company_tools = [
@@ -197,19 +206,27 @@ class WorkflowManager:
             tools_to_run = company_tools
 
         # Execute tools
-        for tool_name, dependency in tools_to_run:
+        for tool_name, dep_type in tools_to_run:
             # Determine execution target
             exec_target = target
             
             # Handle dependencies
-            if dependency == "domain":
+            if dep_type == "domain":
                 if not target_domain:
                     continue # Skip if no domain
                 exec_target = target_domain
-            elif dependency is not None:
-                if not dependency:
-                    continue # Skip if dependency (email/phone) is missing
-                exec_target = dependency
+            elif dep_type == "email":
+                if not email:
+                    continue
+                exec_target = email
+            elif dep_type == "phone":
+                if not phone:
+                    continue
+                exec_target = phone
+            elif dep_type == "file":
+                if not file:
+                    continue
+                exec_target = file
 
             # Special handling for Sherlock variations
             if tool_name == "sherlock" and username_variations:

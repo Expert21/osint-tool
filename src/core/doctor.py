@@ -8,6 +8,17 @@ from src.core.config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)
 
+# Installation hints for native tools
+TOOL_INSTALL_HINTS = {
+    "sherlock": "pip install sherlock-project",
+    "theharvester": "pip install theHarvester",
+    "holehe": "pip install holehe",
+    "phoneinfoga": "See https://github.com/sundowndev/phoneinfoga#installation",
+    "subfinder": "go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
+    "ghunt": "pip install ghunt",
+    "h8mail": "pip install h8mail"
+}
+
 class HermesDoctor:
     """
     Diagnostic tool for Hermes OSINT.
@@ -58,7 +69,8 @@ class HermesDoctor:
 
     def check_native_tools(self) -> Dict[str, bool]:
         """Check for presence of native tools."""
-        tools = ["sherlock", "theharvester", "holehe", "phoneinfoga", "subfinder", "exiftool"]
+        # Check all tools that have plugins
+        tools = list(TOOL_INSTALL_HINTS.keys())
         for tool in tools:
             self.results["native_tools"][tool] = shutil.which(tool) is not None
         return self.results["native_tools"]
@@ -77,23 +89,25 @@ class HermesDoctor:
         print("\n=== Hermes Doctor Report ===\n")
         
         # Docker
-        status = "✅ Available" if self.results["docker"] else "❌ Not Available"
+        status = "[OK] Available" if self.results["docker"] else "[X] Not Available"
         print(f"Docker: {status}")
         if not self.results["docker"]:
             print("  -> Ensure Docker Desktop is installed and running.")
             
         # Internet
-        status = "✅ Connected" if self.results["internet"] else "❌ Disconnected"
+        status = "[OK] Connected" if self.results["internet"] else "[X] Disconnected"
         print(f"Internet: {status}")
         
         # Config
-        status = "✅ Valid" if self.results["config"] else "❌ Invalid"
+        status = "[OK] Valid" if self.results["config"] else "[X] Invalid"
         print(f"Configuration: {status}")
         
         # Native Tools
         print("\nNative Tools:")
         for tool, available in self.results["native_tools"].items():
-            status = "✅ Installed" if available else "❌ Not Found"
+            status = "[OK] Installed" if available else "[X] Not Found"
             print(f"  - {tool}: {status}")
+            if not available and tool in TOOL_INSTALL_HINTS:
+                print(f"      Install: {TOOL_INSTALL_HINTS[tool]}")
             
         print("\n============================")

@@ -64,6 +64,9 @@ async def main_async():
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached results")
     parser.add_argument("--cache-stats", action="store_true", help="Show cache statistics")
     
+    # Setup & Configuration
+    parser.add_argument("--setup", action="store_true", help="Run interactive tool setup")
+    parser.add_argument("--import-env", action="store_true", help="Import .env file values into secure encrypted storage")
 
     
     # Proxy Configuration
@@ -72,13 +75,12 @@ async def main_async():
 
     # Phase 3: Modes & UX
     parser.add_argument("--mode", choices=["native", "docker", "hybrid"], default="native", help="Execution mode")
-    parser.add_argument("--tool", choices=["sherlock", "theharvester", "holehe", "phoneinfoga", "subfinder", "exiftool"], help="Specific tool to run")
+    parser.add_argument("--tool", choices=["sherlock", "theharvester", "holehe", "phoneinfoga", "subfinder", "ghunt"], help="Specific tool to run")
     parser.add_argument("--doctor", action="store_true", help="Run system diagnostics")
     parser.add_argument("--pull-images", action="store_true", help="Pull all required Docker images")
     parser.add_argument("--remove-images", action="store_true", help="Remove all trusted Docker images")
 
-    # Environment Management
-    parser.add_argument("--import-env", action="store_true", help="Import .env file values into secure encrypted storage")
+
     
     # Plugin Management
     subparsers = parser.add_subparsers(dest="command", help="Sub-commands")
@@ -109,6 +111,21 @@ async def main_async():
     )
     logger = logging.getLogger("hermes")
     
+    # Handle Setup
+    if args.setup:
+        from src.orchestration.setup_manager import SetupManager
+        setup_mgr = SetupManager()
+        setup_mgr.run_setup()
+        return 0
+        
+    # Handle Environment Import
+    if args.import_env:
+        secrets_manager = SecretsManager()
+        logger.info("Importing .env file into secure storage...")
+        secrets_manager.import_from_env_file('.env')
+        logger.info("✓ Environment variables imported successfully")
+        logger.info("You can now run hermes commands with encrypted credentials")
+        return 0
     # Handle Doctor
     if args.doctor:
         from src.core.doctor import HermesDoctor
@@ -229,13 +246,8 @@ async def main_async():
         logger.info(f"Loaded {len(proxy_manager.providers)} proxy provider(s)")
         await proxy_manager.initialize()
     
-    # Handle environment import
-    if args.import_env:
-        logger.info("Importing .env file into secure storage...")
-        secrets_manager.import_from_env_file('.env')
-        logger.info("✓ Environment variables imported successfully")
-        logger.info("You can now run hermes commands with encrypted credentials")
-        return 0
+    # Handle environment import (handled earlier, but kept for flow if moved)
+    # if args.import_env: ...
     
     if args.create_profiles:
         config_manager.create_default_profile()
@@ -290,12 +302,10 @@ async def main_async():
         try:
             # Prepare target based on tool type and arguments
             # Use email for email tools, phone for phoneinfoga, file for exiftool, otherwise use target
-            if args.email and args.tool in ["holehe", "h8mail"]:
+            if args.email and args.tool in ["holehe", "h8mail", "ghunt"]:
                 target = args.email
             elif args.phone and args.tool == "phoneinfoga":
                 target = args.phone
-            elif args.file and args.tool == "exiftool":
-                target = args.file
             else:
                 target = args.target
             

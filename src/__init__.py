@@ -4,7 +4,7 @@ Hermes OSINT Tool
 Advanced Open Source Intelligence Gathering Framework
 """
 
-__version__ = "2.0"
+__version__ = "2.1"
 __author__ = "Expert21"
 __description__ = "Advanced OSINT Intelligence Gathering Tool"
 

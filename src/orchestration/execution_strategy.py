@@ -46,7 +46,6 @@ class DockerExecutionStrategy(ExecutionStrategy):
             "sherlock": "sherlock/sherlock",
             "theharvester": "ghcr.io/laramies/theharvester:sha-97e89aa",
             "h8mail": "kh4st3x00/h8mail",
-            "holehe": "ghcr.io/expert21/hermes-holehe",
             "phoneinfoga": "sundowndev/phoneinfoga",
             "subfinder": "projectdiscovery/subfinder",
             "exiftool": "ai2ys/exiftool"
@@ -137,19 +136,51 @@ class NativeExecutionStrategy(ExecutionStrategy):
     Executes tools using locally installed binaries.
     """
     
+    # Installation hints for native tools
+    INSTALL_HINTS = {
+        "sherlock": "pip install sherlock-project",
+        "theharvester": "pip install theHarvester",
+        "holehe": "pip install holehe",
+        "phoneinfoga": "See https://github.com/sundowndev/phoneinfoga#installation",
+        "subfinder": "go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
+        "ghunt": "pip install ghunt",
+        "h8mail": "pip install h8mail"
+    }
+    
     def __init__(self):
         pass
 
     def is_available(self, tool_name: str) -> bool:
         """Check if the tool is in the system PATH."""
         return shutil.which(tool_name) is not None
+    
+    def _get_install_hint(self, tool_name: str) -> str:
+        """Return installation hint for a tool."""
+        return self.INSTALL_HINTS.get(tool_name, None)
 
     def execute(self, tool_name: str, command: List[str], config: Dict[str, Any]) -> str:
         if not self.is_available(tool_name):
-            raise RuntimeError(f"Tool {tool_name} not found locally")
+            hint = self._get_install_hint(tool_name)
+            if hint:
+                raise RuntimeError(
+                    f"Tool '{tool_name}' not found in PATH. Install with: {hint}"
+                )
+            else:
+                raise RuntimeError(
+                    f"Tool '{tool_name}' not found in PATH. "
+                    f"Please install '{tool_name}' and ensure it's in your PATH."
+                )
             
         # Prepare environment
         env = os.environ.copy()
+        
+        # Force UTF-8 encoding and disable rich console styling for subprocess
+        # This prevents errors when tools use the 'rich' library
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["NO_COLOR"] = "1"  # Disable ANSI colors
+        env["TERM"] = "dumb"   # Disable terminal features
+        env["FORCE_COLOR"] = "0"  # Tell some libraries not to use color
+        
         if "proxy_url" in config:
             # SECURITY: Validate proxy URL to prevent injection
             proxy_url = config["proxy_url"]
@@ -168,19 +199,23 @@ class NativeExecutionStrategy(ExecutionStrategy):
             # Let's assume 'command' is just the arguments.
             full_cmd = [tool_name] + command
             
+            # Use binary mode to avoid encoding issues with Unicode (emoji, etc.)
             result = subprocess.run(
                 full_cmd,
                 capture_output=True,
-                text=True,
                 env=env,
-                check=False # We handle return codes manually if needed
+                check=False  # We handle return codes manually if needed
             )
+            
+            # Decode as UTF-8 with error replacement for Windows compatibility
+            stdout = result.stdout.decode('utf-8', errors='replace')
+            stderr = result.stderr.decode('utf-8', errors='replace')
             
             if result.returncode != 0:
                 logger.warning(f"Native tool {tool_name} exited with code {result.returncode}")
                 
             # Combine stdout and stderr
-            return result.stdout + "\n" + result.stderr
+            return stdout + "\n" + stderr
             
         except Exception as e:
             logger.error(f"Native execution failed: {e}")

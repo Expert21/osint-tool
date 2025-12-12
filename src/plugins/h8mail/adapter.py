@@ -37,7 +37,11 @@ class H8MailAdapter(ToolAdapter):
         # -j: json output (if supported, otherwise we parse stdout)
         # --loose: loose search (optional, maybe configurable)
         
-        command = ["-t", target, "--json"]
+        # Use /dev/stdout for output to ensure JSON is captured in the logs
+        # and to satisfy the requirement for an argument to --json.
+        output_file = "/dev/stdout"
+        
+        command = ["-t", target, "--json", output_file]
         
         # STEALTH: Use local breach compilation only, no external API calls
         if config.get("stealth_mode", False):
@@ -61,22 +65,45 @@ class H8MailAdapter(ToolAdapter):
         """
         Parse h8mail output.
         """
+        import re
         entities = []
         
+        # Strip ANSI color codes
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        clean_output = ansi_escape.sub('', output)
+        
         try:
-            # h8mail with --json might output multiple JSON objects or a list
-            # It often outputs logs mixed with JSON. We need to find the JSON part.
+            # Look for JSON objects in the cleaned output
+            # Matches { ... } with minimal assumption about content
+            json_pattern = re.compile(r'\{.*\}')
             
-            # Simple heuristic: look for lines starting with '{'
-            for line in output.splitlines():
+            for line in clean_output.splitlines():
                 line = line.strip()
-                if line.startswith("{") and line.endswith("}"):
+                match = json_pattern.search(line)
+                if match:
+                    json_str = match.group(0)
                     try:
-                        data = json.loads(line)
-                        # Check if it looks like a breach result
+                        data = json.loads(json_str)
+                        
+                        # Handle "target" format: {"targets": [{"target": "...", "data": []}]}
+                        if "targets" in data:
+                            for target_data in data["targets"]:
+                                if "breach" in target_data:
+                                     # handle breach list if present
+                                     pass
+                                # Check 'data' field which might contain breach info
+                                if "data" in target_data and isinstance(target_data["data"], list):
+                                     for breach_item in target_data["data"]:
+                                         entities.append(Entity(
+                                             type="breach",
+                                             value=str(breach_item),
+                                             source="h8mail",
+                                             metadata=target_data
+                                         ))
+                        
+                        # Handle direct breach format (older versions or different flags)
                         if "target" in data and "breach" in data:
-                             # data["breach"] can be a list or string depending on h8mail version/plugin
-                             # Assuming it's a list of breach names or objects
+                             # data["breach"] can be a list or string
                              breaches = data.get("breach", [])
                              if isinstance(breaches, list):
                                  for breach in breaches:
@@ -103,5 +130,5 @@ class H8MailAdapter(ToolAdapter):
         return ToolResult(
             tool="h8mail",
             entities=entities,
-            raw_output=output
+            raw_output=clean_output # Return cleaned output for better readability
         )
